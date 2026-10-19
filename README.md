@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # VorldX Employee Attendance System
 
 A production-ready full-stack attendance and workforce management system built for modern hybrid organizations.
@@ -97,3 +98,7 @@ npx expo start
 - **HR Admin**:
   - Email: `vorldxadminister@gmail.com`
   - Password: (configured in `backend/.env`)
+=======
+# vorldx-attendance-system
+Full-stack employee attendance system (React, Node.js, Express, MongoDB): Employee App with dynamic QR check-in/out and WFH requests, HR/Admin website for policies, approvals and reports. VorldX internship project, demo data only.
+>>>>>>> b8fd731a7adeea8dd07e5d3cdfb5460c0f65e48f
