@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "VorldX Employee",
+    "slug": "vorldx-employee-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#081b2e"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#081b2e"
+      },
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow VorldX to use your camera to scan office QR codes for attendance."
+        }
+      ]
+    ]
+  }
+}
