@@ -1,4 +1,5 @@
 import * as LocalAuthentication from "expo-local-authentication";
+import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
@@ -8,14 +9,55 @@ export const BIOMETRIC_USER_EMAIL = "vorldx_biometric_email";
 export const BIOMETRIC_USER_NAME = "vorldx_biometric_name";
 
 /**
- * Check if the device has biometric hardware and enrolled biometrics
+ * Secure Storage wrapper: uses expo-secure-store on iOS/Android,
+ * falls back to AsyncStorage on Web or if SecureStore throws.
+ */
+async function setSecureItem(key, value) {
+  try {
+    if (Platform.OS !== "web" && (await SecureStore.isAvailableAsync())) {
+      await SecureStore.setItemAsync(key, value, {
+        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+      });
+      return;
+    }
+  } catch (e) {
+    console.warn("SecureStore set fallback:", e.message);
+  }
+  await AsyncStorage.setItem(key, value);
+}
+
+async function getSecureItem(key) {
+  try {
+    if (Platform.OS !== "web" && (await SecureStore.isAvailableAsync())) {
+      const val = await SecureStore.getItemAsync(key);
+      if (val !== null) return val;
+    }
+  } catch (e) {
+    console.warn("SecureStore get fallback:", e.message);
+  }
+  return AsyncStorage.getItem(key);
+}
+
+async function removeSecureItem(key) {
+  try {
+    if (Platform.OS !== "web" && (await SecureStore.isAvailableAsync())) {
+      await SecureStore.deleteItemAsync(key);
+    }
+  } catch (e) {
+    console.warn("SecureStore delete fallback:", e.message);
+  }
+  await AsyncStorage.removeItem(key);
+}
+
+/**
+ * Check hardware availability, enrolled biometrics and specific biometric name
  */
 export async function checkBiometricAvailability() {
   if (Platform.OS === "web") {
     return {
       available: false,
       enrolled: false,
-      biometricType: "Fingerprint / Face ID",
+      biometricType: "Biometrics (Web Preview)",
       supportedTypes: [],
     };
   }
@@ -27,7 +69,7 @@ export async function checkBiometricAvailability() {
 
     let biometricType = "Fingerprint / Face ID";
     if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-      biometricType = Platform.OS === "ios" ? "Face ID" : "Facial Recognition";
+      biometricType = Platform.OS === "ios" ? "Face ID" : "Face Recognition";
     } else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
       biometricType = Platform.OS === "ios" ? "Touch ID" : "Fingerprint Sensor";
     } else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.IRIS)) {
@@ -58,7 +100,7 @@ export async function checkBiometricAvailability() {
 export async function isBiometricEnabled() {
   try {
     const enabled = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
-    const token = await AsyncStorage.getItem(BIOMETRIC_TOKEN_KEY);
+    const token = await getSecureItem(BIOMETRIC_TOKEN_KEY);
     return enabled === "true" && Boolean(token);
   } catch {
     return false;
@@ -66,7 +108,7 @@ export async function isBiometricEnabled() {
 }
 
 /**
- * Get stored account details enrolled for biometrics
+ * Get account metadata associated with the biometric login
  */
 export async function getBiometricAccount() {
   try {
@@ -79,12 +121,11 @@ export async function getBiometricAccount() {
 }
 
 /**
- * Trigger biometric prompt to verify user identity
+ * Prompt the user for biometric verification (Face ID / Fingerprint)
  */
 export async function authenticateBiometric(promptMessage = "Verify your fingerprint or face") {
   try {
     if (Platform.OS === "web") {
-      // In web browser preview, simulate browser credential or confirm prompt
       return { success: true };
     }
 
@@ -100,7 +141,10 @@ export async function authenticateBiometric(promptMessage = "Verify your fingerp
     } else {
       return {
         success: false,
-        error: result.error === "user_cancel" ? "Authentication cancelled" : result.warning || "Biometric verification failed",
+        error:
+          result.error === "user_cancel"
+            ? "Authentication cancelled"
+            : result.warning || "Biometric verification failed",
       };
     }
   } catch (error) {
@@ -109,21 +153,20 @@ export async function authenticateBiometric(promptMessage = "Verify your fingerp
 }
 
 /**
- * Enable biometric login for the current user session
+ * Enable biometric login for the current session (stores token in hardware keychain)
  */
 export async function enableBiometric(token, userEmail, userName) {
   if (!token) {
     throw new Error("Active session token required to enable biometric login.");
   }
 
-  // Confirm user's biometrics before enabling
   const authResult = await authenticateBiometric("Confirm your biometric to enable instant login");
   if (!authResult.success) {
-    throw new Error(authResult.error || "Biometric verification cancelled.");
+    throw new Error(authResult.error || "Biometric verification was cancelled.");
   }
 
   await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, "true");
-  await AsyncStorage.setItem(BIOMETRIC_TOKEN_KEY, token);
+  await setSecureItem(BIOMETRIC_TOKEN_KEY, token);
   if (userEmail) await AsyncStorage.setItem(BIOMETRIC_USER_EMAIL, userEmail);
   if (userName) await AsyncStorage.setItem(BIOMETRIC_USER_NAME, userName);
 
@@ -131,23 +174,25 @@ export async function enableBiometric(token, userEmail, userName) {
 }
 
 /**
- * Disable biometric login and remove stored biometric credentials
+ * Disable biometric login and remove credentials from keychain
  */
 export async function disableBiometric() {
   await AsyncStorage.removeItem(BIOMETRIC_ENABLED_KEY);
-  await AsyncStorage.removeItem(BIOMETRIC_TOKEN_KEY);
+  await removeSecureItem(BIOMETRIC_TOKEN_KEY);
   await AsyncStorage.removeItem(BIOMETRIC_USER_EMAIL);
   await AsyncStorage.removeItem(BIOMETRIC_USER_NAME);
   return { success: true };
 }
 
 /**
- * Perform login using stored biometric credentials
+ * Login using stored credentials unlocked by platform biometrics
  */
 export async function loginWithBiometrics() {
   const enabled = await isBiometricEnabled();
   if (!enabled) {
-    throw new Error("Biometric login is not set up on this device. Please log in with password first and enable it in your profile.");
+    throw new Error(
+      "Biometric login is not set up on this device. Please sign in with password first and enable it in your profile."
+    );
   }
 
   const { biometricType } = await checkBiometricAvailability();
@@ -157,12 +202,12 @@ export async function loginWithBiometrics() {
     throw new Error(authResult.error || "Biometric authentication was cancelled.");
   }
 
-  const token = await AsyncStorage.getItem(BIOMETRIC_TOKEN_KEY);
+  const token = await getSecureItem(BIOMETRIC_TOKEN_KEY);
   const email = await AsyncStorage.getItem(BIOMETRIC_USER_EMAIL);
   const name = await AsyncStorage.getItem(BIOMETRIC_USER_NAME);
 
   if (!token) {
-    throw new Error("No stored biometric credentials found. Please log in with password.");
+    throw new Error("No stored biometric credentials found. Please sign in with password.");
   }
 
   return {

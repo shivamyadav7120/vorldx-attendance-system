@@ -10,9 +10,14 @@ import {
   ActivityIndicator,
   Platform,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import biometricService from "../services/biometricService";
+import { colors, radii, shadows, spacing } from "../theme/tokens";
+import WateryCard from "../components/WateryCard";
+import DarkButton from "../components/DarkButton";
+import ConfirmationModal from "../components/ConfirmationModal";
 
 export default function ProfileScreen({ onBack }) {
   const {
@@ -20,7 +25,6 @@ export default function ProfileScreen({ onBack }) {
     employee,
     logout,
     updateLocalProfile,
-    refreshProfile,
     enableBiometric,
     disableBiometric,
   } = useAuth();
@@ -56,6 +60,9 @@ export default function ProfileScreen({ onBack }) {
   const [serverUrl, setServerUrl] = useState("");
   const [savingUrl, setSavingUrl] = useState(false);
 
+  // Logout modal
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+
   useEffect(() => {
     api.getBaseUrl().then(setServerUrl);
     loadBiometricStatus();
@@ -83,8 +90,8 @@ export default function ProfileScreen({ onBack }) {
   async function handleToggleBiometric() {
     if (biometricEnabled) {
       Alert.alert(
-        "Disable Biometric Login",
-        "Are you sure you want to disable fingerprint and face recognition login on this device?",
+        "Disable Biometric Unlock",
+        "Are you sure you want to disable biometric login on this device?",
         [
           { text: "Cancel", style: "cancel" },
           {
@@ -95,7 +102,7 @@ export default function ProfileScreen({ onBack }) {
               try {
                 await disableBiometric();
                 setBiometricEnabled(false);
-                Alert.alert("Biometrics Disabled", "Biometric login has been deactivated on this device.");
+                Alert.alert("Deactivated", "Biometric session credentials removed from device.");
               } catch (err) {
                 Alert.alert("Error", err.message || "Failed to disable biometrics.");
               } finally {
@@ -111,11 +118,11 @@ export default function ProfileScreen({ onBack }) {
         await enableBiometric();
         setBiometricEnabled(true);
         Alert.alert(
-          "Biometric Login Activated! 🎉",
-          `You can now sign in to VorldX using ${biometricInfo.biometricType || "Fingerprint / Face ID"} with a single tap!`
+          "Biometric Login Enabled",
+          `You can now sign in with your ${biometricInfo.biometricType || "biometric sensor"}!`
         );
       } catch (err) {
-        Alert.alert("Biometric Setup Failed", err.message || "Could not register biometric authentication.");
+        Alert.alert("Setup Incomplete", err.message || "Could not register biometric authentication.");
       } finally {
         setBiometricBusy(false);
       }
@@ -142,7 +149,7 @@ export default function ProfileScreen({ onBack }) {
       if (res.user || res.employee) {
         updateLocalProfile(res.user, res.employee);
       }
-      Alert.alert("Success", res.message || "Profile details updated successfully!");
+      Alert.alert("Profile Updated", res.message || "Your profile details have been saved.");
     } catch (err) {
       Alert.alert("Update Failed", err.message || "Failed to update profile.");
     } finally {
@@ -152,29 +159,29 @@ export default function ProfileScreen({ onBack }) {
 
   async function handleSavePassword() {
     if (!currentPassword || !newPassword) {
-      Alert.alert("Validation Error", "Please provide current and new password.");
+      Alert.alert("Missing Fields", "Please provide current and new password.");
       return;
     }
 
     if (newPassword.length < 8) {
-      Alert.alert("Weak Password", "New password must be at least 8 characters long.");
+      Alert.alert("Weak Password", "New password must be at least 8 characters.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert("Mismatch", "New password and confirm password do not match.");
+      Alert.alert("Mismatch", "New password and confirmation do not match.");
       return;
     }
 
     setSavingPassword(true);
     try {
       const res = await api.changePassword(currentPassword, newPassword);
-      Alert.alert("Security Update", res.message || "Password updated successfully!");
+      Alert.alert("Password Changed", res.message || "Your password has been changed successfully.");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
-      Alert.alert("Password Error", err.message || "Failed to change password.");
+      Alert.alert("Change Failed", err.message || "Failed to change password.");
     } finally {
       setSavingPassword(false);
     }
@@ -185,7 +192,7 @@ export default function ProfileScreen({ onBack }) {
     setSavingUrl(true);
     try {
       await api.setBaseUrl(serverUrl.trim());
-      Alert.alert("Server Config Saved", `Active API endpoint set to: ${serverUrl}`);
+      Alert.alert("Server Config Saved", `Active API base URL set to: ${serverUrl}`);
     } catch (e) {
       Alert.alert("Error", e.message);
     } finally {
@@ -193,708 +200,653 @@ export default function ProfileScreen({ onBack }) {
     }
   }
 
-  function handleLogout() {
-    if (Platform.OS === "web") {
-      if (typeof window !== "undefined" && window.confirm("Are you sure you want to sign out of this device?")) {
-        logout();
-      } else if (typeof window === "undefined") {
-        logout();
-      }
-      return;
-    }
-
-    Alert.alert("Sign Out", "Are you sure you want to sign out of this device?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: () => logout(),
-      },
-    ]);
-  }
+  const initials = (name || user?.name || "VX")
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
-      {/* HEADER */}
+    <View style={styles.container}>
+      {/* Top Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-          <Text style={styles.backBtnText}>‹ Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Manage Profile</Text>
-        <View style={{ width: 44 }} />
-      </View>
-
-      {/* AVATAR HERO CARD */}
-      <View style={styles.avatarCard}>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarLetter}>
-            {String(name || employee?.name || user?.name || "E")[0].toUpperCase()}
-          </Text>
-        </View>
-        <Text style={styles.profileName}>{name || employee?.name || user?.name || "Employee"}</Text>
-        <Text style={styles.profileEmail}>{employee?.email || user?.email || ""}</Text>
-
-        <View style={styles.badgeRow}>
-          <View style={styles.idBadge}>
-            <Text style={styles.idBadgeText}>ID: {employee?.employeeId || "VX-EMP"}</Text>
-          </View>
-          <View style={styles.deptBadge}>
-            <Text style={styles.deptBadgeText}>{employee?.department || "Department"}</Text>
-          </View>
-          <View style={styles.statusBadge}>
-            <Text style={styles.statusBadgeText}>● Active</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* SEGMENTED TABS */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === "details" && styles.tabItemActive]}
-          onPress={() => setActiveTab("details")}
-        >
-          <Text style={[styles.tabText, activeTab === "details" && styles.tabTextActive]}>
-            👤 Details
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === "security" && styles.tabItemActive]}
-          onPress={() => setActiveTab("security")}
-        >
-          <Text style={[styles.tabText, activeTab === "security" && styles.tabTextActive]}>
-            🔒 Security
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === "server" && styles.tabItemActive]}
-          onPress={() => setActiveTab("server")}
-        >
-          <Text style={[styles.tabText, activeTab === "server" && styles.tabTextActive]}>
-            ⚙️ Setup
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* TAB 1: EDIT PERSONAL DETAILS */}
-      {activeTab === "details" && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Personal Information</Text>
-          <Text style={styles.cardDesc}>
-            Keep your official contact and emergency information up to date.
-          </Text>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>FULL NAME</Text>
-            <TextInput
-              style={styles.input}
-              value={name}
-              onChangeText={setName}
-              placeholder="Your full name"
-              placeholderTextColor="#475569"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>PHONE NUMBER</Text>
-            <TextInput
-              style={styles.input}
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="+91 98765 43210"
-              placeholderTextColor="#475569"
-              keyboardType="phone-pad"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>DESIGNATION / ROLE</Text>
-            <TextInput
-              style={styles.input}
-              value={designation}
-              onChangeText={setDesignation}
-              placeholder="e.g. Software Engineer Intern"
-              placeholderTextColor="#475569"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>EMERGENCY CONTACT</Text>
-            <TextInput
-              style={styles.input}
-              value={emergencyContact}
-              onChangeText={setEmergencyContact}
-              placeholder="Parent / Guardian Name & Number"
-              placeholderTextColor="#475569"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>RESIDENTIAL ADDRESS</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={address}
-              onChangeText={setAddress}
-              placeholder="Current local or permanent address"
-              placeholderTextColor="#475569"
-              multiline
-              numberOfLines={2}
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>SHORT BIO / ABOUT</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={bio}
-              onChangeText={setBio}
-              placeholder="A brief note about your specialization or role"
-              placeholderTextColor="#475569"
-              multiline
-              numberOfLines={2}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.primaryBtn, savingProfile && styles.btnDisabled]}
-            onPress={handleSaveProfile}
-            disabled={savingProfile}
-          >
-            {savingProfile ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text style={styles.primaryBtnText}>✓ Save Profile Changes</Text>
-            )}
+        {onBack ? (
+          <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
+        ) : (
+          <View style={{ width: 36 }} />
+        )}
+        <View style={styles.headerTitleBox}>
+          <Text style={styles.headerTitle}>Profile & Security</Text>
+          <Text style={styles.headerSubtitle}>Personal data and credentials</Text>
         </View>
-      )}
+        <TouchableOpacity
+          style={styles.logoutTopBtn}
+          onPress={() => setLogoutModalOpen(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="log-out-outline" size={20} color="#DC2626" />
+        </TouchableOpacity>
+      </View>
 
-      {/* TAB 2: SECURITY & PASSWORD */}
-      {activeTab === "security" && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Change Password</Text>
-          <Text style={styles.cardDesc}>
-            Update your account password. Choose a strong password with at least 8 characters.
-          </Text>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>CURRENT PASSWORD</Text>
-            <TextInput
-              style={styles.input}
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              placeholder="••••••••"
-              placeholderTextColor="#475569"
-              secureTextEntry
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>NEW PASSWORD (MIN 8 CHARACTERS)</Text>
-            <TextInput
-              style={styles.input}
-              value={newPassword}
-              onChangeText={setNewPassword}
-              placeholder="••••••••"
-              placeholderTextColor="#475569"
-              secureTextEntry
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>CONFIRM NEW PASSWORD</Text>
-            <TextInput
-              style={styles.input}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="••••••••"
-              placeholderTextColor="#475569"
-              secureTextEntry
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.primaryBtn, savingPassword && styles.btnDisabled]}
-            onPress={handleSavePassword}
-            disabled={savingPassword}
-          >
-            {savingPassword ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text style={styles.primaryBtnText}>🔒 Update Password</Text>
-            )}
-          </TouchableOpacity>
-
-          {/* BIOMETRIC AUTHENTICATION CARD */}
-          <View style={styles.biometricCard}>
-            <View style={styles.biometricHeader}>
-              <View style={styles.biometricIconBadge}>
-                <Text style={{ fontSize: 24 }}>👆</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>Biometric Authentication</Text>
-                <Text style={styles.cardDesc}>
-                  Sign in instantly with your {biometricInfo.biometricType || "Fingerprint / Face ID"}.
-                </Text>
-              </View>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* User Hero Identity Card */}
+        <WateryCard style={styles.identityCard} elevated>
+          <View style={styles.avatarRow}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarInitials}>{initials}</Text>
             </View>
 
-            <View style={styles.biometricStatusRow}>
-              <Text style={styles.biometricStatusLabel}>Biometric Login Status:</Text>
-              <View
-                style={[
-                  styles.statusBadge,
-                  biometricEnabled ? styles.badgeActive : styles.badgeInactive,
-                ]}
-              >
-                <Text
+            <View style={styles.identityDetails}>
+              <View style={styles.corpBadge}>
+                <Text style={styles.corpBadgeText}>VORLDX INDUSTRIES</Text>
+              </View>
+              <Text style={styles.identityName} numberOfLines={1}>
+                {name || "Employee"}
+              </Text>
+              <Text style={styles.identityRole}>
+                {employee?.employeeId ? `${employee.employeeId} · ` : ""}
+                {employee?.department || "Operations"}
+              </Text>
+              <Text style={styles.identityEmail} numberOfLines={1}>
+                {user?.email || "employee@vorldx.com"}
+              </Text>
+            </View>
+          </View>
+        </WateryCard>
+
+        {/* Tab Selection Row */}
+        <View style={styles.tabRow}>
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === "details" && styles.tabBtnActive]}
+            onPress={() => setActiveTab("details")}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="person-outline"
+              size={15}
+              color={activeTab === "details" ? "#FFFFFF" : colors.textSecondary}
+            />
+            <Text style={[styles.tabBtnText, activeTab === "details" && styles.tabBtnTextActive]}>
+              Details
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === "security" && styles.tabBtnActive]}
+            onPress={() => setActiveTab("security")}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="shield-checkmark-outline"
+              size={15}
+              color={activeTab === "security" ? "#FFFFFF" : colors.textSecondary}
+            />
+            <Text style={[styles.tabBtnText, activeTab === "security" && styles.tabBtnTextActive]}>
+              Security
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === "server" && styles.tabBtnActive]}
+            onPress={() => setActiveTab("server")}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="server-outline"
+              size={15}
+              color={activeTab === "server" ? "#FFFFFF" : colors.textSecondary}
+            />
+            <Text style={[styles.tabBtnText, activeTab === "server" && styles.tabBtnTextActive]}>
+              Server
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* TAB 1: PROFILE DETAILS */}
+        {activeTab === "details" && (
+          <WateryCard style={styles.tabContentCard} elevated>
+            <Text style={styles.sectionHeader}>EMPLOYEE INFORMATION</Text>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>FULL NAME</Text>
+              <TextInput
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Full Legal Name"
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>CONTACT PHONE</Text>
+              <TextInput
+                style={styles.input}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="+91 98765 43210"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>DESIGNATION</Text>
+              <TextInput
+                style={styles.input}
+                value={designation}
+                onChangeText={setDesignation}
+                placeholder="Software Engineer, Operations..."
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>OFFICIAL RESIDENTIAL ADDRESS</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={address}
+                onChangeText={setAddress}
+                placeholder="City, State, Country"
+                placeholderTextColor={colors.textMuted}
+                multiline
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>EMERGENCY CONTACT PERSON & NUMBER</Text>
+              <TextInput
+                style={styles.input}
+                value={emergencyContact}
+                onChangeText={setEmergencyContact}
+                placeholder="Name & Contact Number"
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>PROFESSIONAL BIO</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={bio}
+                onChangeText={setBio}
+                placeholder="Brief summary..."
+                placeholderTextColor={colors.textMuted}
+                multiline
+              />
+            </View>
+
+            <DarkButton
+              title="Save Profile Changes"
+              onPress={handleSaveProfile}
+              loading={savingProfile}
+              icon={<Ionicons name="save-outline" size={17} color="#FFFFFF" />}
+              style={{ marginTop: spacing.md }}
+            />
+          </WateryCard>
+        )}
+
+        {/* TAB 2: BIOMETRICS & SECURITY */}
+        {activeTab === "security" && (
+          <View style={styles.securityStack}>
+            {/* Native Biometric Sensor Toggle Card */}
+            <WateryCard style={styles.tabContentCard} elevated>
+              <View style={styles.bioCardHeader}>
+                <View style={styles.bioIconBox}>
+                  <Ionicons
+                    name={
+                      biometricInfo.biometricType.toLowerCase().includes("face")
+                        ? "scan"
+                        : "finger-print"
+                    }
+                    size={28}
+                    color={colors.primary}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.bioTitle}>{biometricInfo.biometricType}</Text>
+                  <Text style={styles.bioSub}>
+                    {biometricInfo.available
+                      ? "Hardware-backed biometric authentication"
+                      : "Biometric sensor unavailable on this device"}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.bioStatusPillRow}>
+                <View
                   style={[
-                    styles.statusBadgeText,
-                    biometricEnabled ? styles.badgeTextActive : styles.badgeTextInactive,
+                    styles.bioPill,
+                    biometricEnabled ? styles.bioPillActive : styles.bioPillInactive,
                   ]}
                 >
-                  {biometricEnabled ? "● Active on this device" : "○ Not Enrolled"}
-                </Text>
+                  <View
+                    style={[
+                      styles.bioPillDot,
+                      { backgroundColor: biometricEnabled ? "#16A34A" : "#94A3B8" },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.bioPillText,
+                      { color: biometricEnabled ? "#15803D" : colors.textSecondary },
+                    ]}
+                  >
+                    {biometricEnabled ? "BIOMETRICS ACTIVE" : "BIOMETRICS DISABLED"}
+                  </Text>
+                </View>
               </View>
+
+              <Text style={styles.bioDescription}>
+                When activated, your authorized session token is protected in hardware keychain
+                (iOS Keychain / Android KeyStore) for 1-tap biometric unlock.
+              </Text>
+
+              <DarkButton
+                title={
+                  biometricBusy
+                    ? "Updating Security..."
+                    : biometricEnabled
+                    ? `Disable ${biometricInfo.biometricType}`
+                    : `Enable ${biometricInfo.biometricType}`
+                }
+                variant={biometricEnabled ? "secondary" : "primary"}
+                onPress={handleToggleBiometric}
+                loading={biometricBusy}
+                icon={
+                  <Ionicons
+                    name={biometricEnabled ? "close-circle-outline" : "shield-checkmark-outline"}
+                    size={17}
+                    color={biometricEnabled ? colors.darkButton : "#FFFFFF"}
+                  />
+                }
+                style={{ marginTop: spacing.md }}
+              />
+            </WateryCard>
+
+            {/* Change Password Card */}
+            <WateryCard style={styles.tabContentCard} elevated>
+              <Text style={styles.sectionHeader}>CHANGE ACCOUNT PASSWORD</Text>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>CURRENT PASSWORD</Text>
+                <TextInput
+                  style={styles.input}
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  placeholder="Enter existing password"
+                  placeholderTextColor={colors.textMuted}
+                  secureTextEntry
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>NEW PASSWORD (MIN 8 CHARS)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="Enter strong password"
+                  placeholderTextColor={colors.textMuted}
+                  secureTextEntry
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>CONFIRM NEW PASSWORD</Text>
+                <TextInput
+                  style={styles.input}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Re-enter new password"
+                  placeholderTextColor={colors.textMuted}
+                  secureTextEntry
+                />
+              </View>
+
+              <DarkButton
+                title="Update Password"
+                onPress={handleSavePassword}
+                loading={savingPassword}
+                icon={<Ionicons name="key-outline" size={17} color="#FFFFFF" />}
+                style={{ marginTop: spacing.md }}
+              />
+            </WateryCard>
+          </View>
+        )}
+
+        {/* TAB 3: SERVER CONFIGURATION */}
+        {activeTab === "server" && (
+          <WateryCard style={styles.tabContentCard} elevated>
+            <Text style={styles.sectionHeader}>BACKEND SERVER ENDPOINT</Text>
+            <Text style={styles.serverDescription}>
+              Configure the network IP address or domain hosting the VorldX HRMS Express backend API.
+            </Text>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>API BASE URL</Text>
+              <TextInput
+                style={styles.input}
+                value={serverUrl}
+                onChangeText={setServerUrl}
+                placeholder="http://10.34.107.125:5000/api"
+                placeholderTextColor={colors.textMuted}
+                autoCapitalize="none"
+              />
             </View>
 
-            {biometricEnabled ? (
-              <View style={styles.biometricActiveBox}>
-                <Text style={styles.biometricActiveText}>
-                  ✓ Biometric login is registered for <Text style={{ color: "#38bdf8", fontWeight: "700" }}>{user?.email}</Text>. You can now sign in with your fingerprint or face.
-                </Text>
-                <TouchableOpacity
-                  style={[styles.disableBiometricBtn, biometricBusy && styles.btnDisabled]}
-                  onPress={handleToggleBiometric}
-                  disabled={biometricBusy}
-                >
-                  {biometricBusy ? (
-                    <ActivityIndicator color="#f43f5e" />
-                  ) : (
-                    <Text style={styles.disableBiometricText}>✕ Disable Biometric Login</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={{ marginTop: 12 }}>
-                <TouchableOpacity
-                  style={[styles.primaryBtn, styles.enableBiometricBtn, biometricBusy && styles.btnDisabled]}
-                  onPress={handleToggleBiometric}
-                  disabled={biometricBusy}
-                >
-                  {biometricBusy ? (
-                    <ActivityIndicator color="#ffffff" />
-                  ) : (
-                    <Text style={styles.primaryBtnText}>
-                      👆 Setup & Enable {biometricInfo.biometricType || "Biometrics"}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-                <Text style={styles.biometricFootnote}>
-                  Scans your device fingerprint sensor or facial recognition to securely link your account.
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
-      )}
+            <DarkButton
+              title="Save Server Configuration"
+              onPress={handleSaveServer}
+              loading={savingUrl}
+              icon={<Ionicons name="save-outline" size={17} color="#FFFFFF" />}
+              style={{ marginTop: spacing.md }}
+            />
+          </WateryCard>
+        )}
 
-      {/* TAB 3: SERVER & APP SETUP */}
-      {activeTab === "server" && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Backend Server Connection</Text>
-          <Text style={styles.cardDesc}>
-            Point this app to your local Wi-Fi or cloud backend server API.
+        {/* Sign Out Action Card */}
+        <WateryCard style={styles.logoutCard}>
+          <Text style={styles.logoutTitle}>Session Termination</Text>
+          <Text style={styles.logoutDesc}>
+            Sign out of this device. Your cached session and auth tokens will be cleared.
           </Text>
 
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>API ENDPOINT</Text>
-            <TextInput
-              style={styles.input}
-              value={serverUrl}
-              onChangeText={setServerUrl}
-              placeholder="http://192.168.1.83:5000/api"
-              placeholderTextColor="#475569"
-              autoCapitalize="none"
-            />
-          </View>
+          <DarkButton
+            title="Sign Out of VorldX"
+            variant="danger"
+            onPress={() => setLogoutModalOpen(true)}
+            icon={<Ionicons name="log-out-outline" size={18} color="#FFFFFF" />}
+            style={{ marginTop: spacing.md }}
+          />
+        </WateryCard>
+      </ScrollView>
 
-          <TouchableOpacity
-            style={[styles.primaryBtn, savingUrl && styles.btnDisabled]}
-            onPress={handleSaveServer}
-            disabled={savingUrl}
-          >
-            {savingUrl ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text style={styles.primaryBtnText}>Save Connection URL</Text>
-            )}
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>App Version</Text>
-            <Text style={styles.infoVal}>v2.0.0 (Modern Edition)</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Role</Text>
-            <Text style={styles.infoVal}>{user?.role || "EMPLOYEE"}</Text>
-          </View>
-        </View>
-      )}
-
-      {/* LOGOUT BUTTON */}
-      <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-        <Text style={styles.logoutBtnText}>Sign Out of Device</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.versionText}>VorldX Attendance Suite · Employee Portal</Text>
-    </ScrollView>
+      {/* Confirmation Modal for Sign Out */}
+      <ConfirmationModal
+        visible={logoutModalOpen}
+        title="Sign Out of VorldX?"
+        message="You will need to re-authenticate with your work email and password or biometrics to sign back in."
+        confirmLabel="Sign Out"
+        isDanger
+        onConfirm={() => {
+          setLogoutModalOpen(false);
+          logout();
+        }}
+        onCancel={() => setLogoutModalOpen(false)}
+        icon="log-out-outline"
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0b0f19",
-  },
-  scroll: {
-    paddingBottom: 40,
+    backgroundColor: colors.bgWatery,
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 18,
-    paddingTop: 50,
-    paddingBottom: 16,
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+    paddingTop: 48,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: "#1e2c44",
+    borderBottomColor: colors.borderLight,
   },
   backBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: "#131b2e",
+    width: 36,
+    height: 36,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceWatery,
+    borderWidth: 1,
+    borderColor: colors.borderWatery,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  backBtnText: {
-    color: "#38bdf8",
-    fontSize: 15,
-    fontWeight: "700",
+  headerTitleBox: {
+    alignItems: "center",
   },
   headerTitle: {
-    color: "#f8fafc",
     fontSize: 17,
     fontWeight: "800",
+    color: colors.textPrimary,
   },
-  avatarCard: {
-    alignItems: "center",
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-    backgroundColor: "#111827",
-    marginHorizontal: 18,
-    marginTop: 18,
-    borderRadius: 16,
+  headerSubtitle: {
+    fontSize: 11.5,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  logoutTopBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.md,
+    backgroundColor: "#FEE2E2",
     borderWidth: 1,
-    borderColor: "#1e293b",
+    borderColor: "#FCA5A5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scrollContent: {
+    padding: spacing.lg,
+    paddingBottom: 40,
+  },
+  identityCard: {
+    marginBottom: spacing.lg,
+    padding: spacing.lg,
+  },
+  avatarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
   },
   avatarCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: "#1e293b",
-    borderWidth: 2,
-    borderColor: "#38bdf8",
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: colors.darkButton,
+    borderWidth: 2.5,
+    borderColor: colors.borderWateryActive,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    ...shadows.darkButton,
   },
-  avatarLetter: {
-    color: "#38bdf8",
-    fontSize: 28,
-    fontWeight: "800",
-  },
-  profileName: {
-    color: "#f8fafc",
+  avatarInitials: {
     fontSize: 20,
-    fontWeight: "800",
+    fontWeight: "900",
+    color: "#FFFFFF",
+    letterSpacing: 0.5,
   },
-  profileEmail: {
-    color: "#94a3b8",
-    fontSize: 13,
-    marginTop: 3,
-  },
-  badgeRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 14,
-    flexWrap: "wrap",
-    justifyContent: "center",
-  },
-  idBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: "#18233a",
-    borderWidth: 1,
-    borderColor: "#22334f",
-  },
-  idBadgeText: {
-    color: "#38bdf8",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  deptBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: "#18233a",
-    borderWidth: 1,
-    borderColor: "#22334f",
-  },
-  deptBadgeText: {
-    color: "#cbd5e1",
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: "#0d2b23",
-    borderWidth: 1,
-    borderColor: "#10b981",
-  },
-  statusBadgeText: {
-    color: "#34d399",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  tabBar: {
-    flexDirection: "row",
-    backgroundColor: "#111827",
-    marginHorizontal: 18,
-    marginTop: 16,
-    borderRadius: 12,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: "#1e293b",
-  },
-  tabItem: {
+  identityDetails: {
     flex: 1,
-    paddingVertical: 9,
+  },
+  corpBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.bgWateryDeep,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: colors.borderWateryActive,
+    marginBottom: 3,
+  },
+  corpBadgeText: {
+    fontSize: 9.5,
+    fontWeight: "800",
+    color: colors.primaryDark,
+    letterSpacing: 0.8,
+  },
+  identityName: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: colors.textPrimary,
+  },
+  identityRole: {
+    fontSize: 12.5,
+    color: colors.textSecondary,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  identityEmail: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  tabRow: {
+    flexDirection: "row",
+    backgroundColor: colors.surfaceWatery,
+    borderWidth: 1,
+    borderColor: colors.borderWatery,
+    borderRadius: radii.lg,
+    padding: 4,
+    gap: 4,
+    marginBottom: spacing.lg,
+  },
+  tabBtn: {
+    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
-    borderRadius: 9,
+    justifyContent: "center",
+    paddingVertical: 8,
+    borderRadius: radii.md,
+    gap: 5,
   },
-  tabItemActive: {
-    backgroundColor: "#1e293b",
+  tabBtnActive: {
+    backgroundColor: colors.darkButton,
   },
-  tabText: {
-    color: "#64748b",
+  tabBtnText: {
     fontSize: 12,
     fontWeight: "700",
+    color: colors.textSecondary,
   },
-  tabTextActive: {
-    color: "#38bdf8",
+  tabBtnTextActive: {
+    color: "#FFFFFF",
   },
-  card: {
-    backgroundColor: "#111827",
-    borderRadius: 16,
-    padding: 18,
-    marginHorizontal: 18,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: "#1e293b",
+  tabContentCard: {
+    marginBottom: spacing.lg,
+    padding: spacing.lg,
   },
-  cardTitle: {
-    color: "#f8fafc",
-    fontSize: 15,
+  sectionHeader: {
+    fontSize: 11,
     fontWeight: "800",
-  },
-  cardDesc: {
-    color: "#94a3b8",
-    fontSize: 11.5,
-    marginTop: 4,
-    marginBottom: 16,
-    lineHeight: 16,
+    color: colors.textWatery,
+    letterSpacing: 1,
+    marginBottom: spacing.md,
   },
   formGroup: {
-    marginBottom: 14,
+    marginBottom: spacing.md,
   },
   label: {
-    color: "#94a3b8",
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: "800",
-    letterSpacing: 0.8,
+    color: colors.textSecondary,
     marginBottom: 6,
+    letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: "#0b0f19",
+    backgroundColor: colors.surfaceWatery,
     borderWidth: 1,
-    borderColor: "#22324a",
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    borderColor: colors.borderWatery,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
     paddingVertical: 10,
-    color: "#f8fafc",
-    fontSize: 13,
+    fontSize: 13.5,
+    color: colors.textPrimary,
   },
   textArea: {
-    minHeight: 58,
+    height: 60,
     textAlignVertical: "top",
   },
-  primaryBtn: {
-    backgroundColor: "#4f46e5",
-    borderRadius: 10,
-    paddingVertical: 13,
-    alignItems: "center",
-    marginTop: 6,
-    shadowColor: "#4f46e5",
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 3,
+  securityStack: {
+    gap: spacing.md,
   },
-  btnDisabled: {
-    opacity: 0.6,
-  },
-  primaryBtnText: {
-    color: "#ffffff",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#1e293b",
-    marginVertical: 16,
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 6,
-  },
-  infoLabel: {
-    color: "#64748b",
-    fontSize: 12,
-  },
-  infoVal: {
-    color: "#cbd5e1",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  logoutBtn: {
-    marginHorizontal: 18,
-    marginTop: 20,
-    paddingVertical: 13,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e11d48",
-    backgroundColor: "#29121a",
-    alignItems: "center",
-  },
-  logoutBtnText: {
-    color: "#f43f5e",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  versionText: {
-    textAlign: "center",
-    color: "#475569",
-    fontSize: 11,
-    marginTop: 22,
-  },
-  biometricCard: {
-    backgroundColor: "#0d1527",
-    borderRadius: 14,
-    padding: 16,
-    marginTop: 20,
-    borderWidth: 1,
-    borderColor: "#1e3355",
-  },
-  biometricHeader: {
+  bioCardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    marginBottom: 14,
+    gap: spacing.md,
+    marginBottom: spacing.md,
   },
-  biometricIconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: "#16233b",
+  bioIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: radii.md,
+    backgroundColor: colors.bgWateryDeep,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#264168",
   },
-  biometricStatusRow: {
+  bioTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  bioSub: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  bioStatusPillRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    marginBottom: spacing.sm,
+  },
+  bioPill: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "#1e2e4a",
-    marginBottom: 12,
-  },
-  biometricStatusLabel: {
-    color: "#94a3b8",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  badgeActive: {
-    backgroundColor: "#0d2b23",
-    borderColor: "#10b981",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radii.pill,
     borderWidth: 1,
+    gap: 6,
   },
-  badgeInactive: {
-    backgroundColor: "#1e293b",
-    borderColor: "#334155",
-    borderWidth: 1,
+  bioPillActive: {
+    backgroundColor: "#DCFCE7",
+    borderColor: "#86EFAC",
   },
-  badgeTextActive: {
-    color: "#34d399",
-    fontWeight: "700",
+  bioPillInactive: {
+    backgroundColor: "#F1F5F9",
+    borderColor: "#CBD5E1",
   },
-  badgeTextInactive: {
-    color: "#94a3b8",
-    fontWeight: "600",
+  bioPillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  biometricActiveBox: {
-    backgroundColor: "#08101e",
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#1e3557",
-  },
-  biometricActiveText: {
-    color: "#cbd5e1",
-    fontSize: 12,
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  disableBiometricBtn: {
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e11d48",
-    backgroundColor: "#29121a",
-    alignItems: "center",
-  },
-  disableBiometricText: {
-    color: "#f43f5e",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  enableBiometricBtn: {
-    backgroundColor: "#2563eb",
-    marginTop: 4,
-  },
-  biometricFootnote: {
-    color: "#64748b",
+  bioPillText: {
     fontSize: 11,
-    textAlign: "center",
-    marginTop: 8,
-    lineHeight: 15,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  bioDescription: {
+    fontSize: 12.5,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginTop: 6,
+  },
+  serverDescription: {
+    fontSize: 12.5,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: spacing.md,
+  },
+  logoutCard: {
+    marginTop: spacing.md,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+    backgroundColor: "#FFF5F5",
+  },
+  logoutTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#B91C1C",
+  },
+  logoutDesc: {
+    fontSize: 12.5,
+    color: colors.textSecondary,
+    marginTop: 3,
   },
 });

@@ -11,16 +11,22 @@ import {
   Alert,
   Modal,
   Platform,
-  Image,
   ScrollView,
+  Image,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import api from "../services/api";
+import { colors, radii, shadows, spacing } from "../theme/tokens";
+import WateryCard from "../components/WateryCard";
+import DarkButton from "../components/DarkButton";
+import StatusBadge from "../components/StatusBadge";
+import ConfirmationModal from "../components/ConfirmationModal";
 
 export default function WfhScreen({ onBack }) {
+  const [activeTab, setActiveTab] = useState("MY_REQUESTS"); // "MY_REQUESTS" | "APPLY"
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
 
   // WFH Type: "STANDARD" | "URGENT"
   const [wfhType, setWfhType] = useState("STANDARD");
@@ -30,13 +36,17 @@ export default function WfhScreen({ onBack }) {
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
   const [urgencyReason, setUrgencyReason] = useState("");
-  const [documentData, setDocumentData] = useState(null); // base64 data URI
+  const [documentData, setDocumentData] = useState(null);
   const [documentName, setDocumentName] = useState("");
   const [documentType, setDocumentType] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // Document preview modal
   const [previewDoc, setPreviewDoc] = useState(null);
+
+  // Cancel modal
+  const [cancelTargetId, setCancelTargetId] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
 
   async function loadRequests() {
     try {
@@ -81,13 +91,12 @@ export default function WfhScreen({ onBack }) {
       };
       input.click();
     } else {
-      // Mobile fallback if web document object is not present
       Alert.alert(
-        "Upload Verification Document",
+        "Attach Verification Document",
         "Select proof document or simulate upload on test device:",
         [
           {
-            text: "Attach Medical Proof (Simulated)",
+            text: "Attach Medical Proof (PDF)",
             onPress: () => {
               setDocumentName("medical_fitness_certificate.pdf");
               setDocumentType("application/pdf");
@@ -97,9 +106,11 @@ export default function WfhScreen({ onBack }) {
           {
             text: "Attach Emergency Slip (Image)",
             onPress: () => {
-              setDocumentName("emergency_doctor_prescription.jpg");
+              setDocumentName("emergency_slip.jpg");
               setDocumentType("image/jpeg");
-              setDocumentData("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+              setDocumentData(
+                "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+              );
             },
           },
           { text: "Cancel", style: "cancel" },
@@ -116,35 +127,33 @@ export default function WfhScreen({ onBack }) {
     return diff > 0 ? diff : 0;
   }
 
+  const selectedDays = countDays(startDate, endDate);
+
   async function handleApply() {
     if (!startDate || !endDate) {
-      Alert.alert("Validation Error", "Please provide start and end dates (YYYY-MM-DD).");
+      Alert.alert("Missing Dates", "Please provide start and end dates (YYYY-MM-DD).");
       return;
     }
 
-    const days = countDays(startDate, endDate);
-
-    // Standard WFH Max 5 Days validation
-    if (wfhType === "STANDARD" && days > 5) {
+    if (wfhType === "STANDARD" && selectedDays > 5) {
       Alert.alert(
-        "Standard Quota Exceeded",
-        `Standard WFH is limited to a maximum of 5 days (you selected ${days} days). For longer emergency requirements, switch to "Urgent WFH" and provide official document proof.`
+        "Standard Policy Limit Exceeded",
+        `Standard WFH is limited to 5 days per month (you selected ${selectedDays} days). For longer emergency requirements, switch to "Urgent WFH" and attach verified document proof.`
       );
       return;
     }
 
-    // Urgent WFH Mandatory Document Proof validation
     if (wfhType === "URGENT" && !documentData) {
       Alert.alert(
         "Document Proof Required",
-        "Urgent Emergency WFH requires you to attach a real document (doctor prescription, medical slip, hospital report, or emergency proof)."
+        "Urgent Emergency WFH requires you to attach supporting document proof (doctor prescription, hospital note, or emergency slip)."
       );
       return;
     }
 
     setSubmitting(true);
     try {
-      const res = await api.submitWfhRequest({
+      await api.submitWfhRequest({
         wfhType,
         startDate,
         endDate,
@@ -158,16 +167,16 @@ export default function WfhScreen({ onBack }) {
       Alert.alert(
         "Request Submitted",
         wfhType === "URGENT"
-          ? "🚨 Urgent Emergency WFH submitted with attached document proof for priority review!"
-          : "Standard WFH request submitted successfully (Max 5 days quota applied)."
+          ? "Urgent Emergency WFH submitted with proof for immediate review."
+          : "Standard WFH request submitted successfully."
       );
 
-      setModalOpen(false);
+      // Reset
+      setActiveTab("MY_REQUESTS");
       setReason("");
       setUrgencyReason("");
       setDocumentData(null);
       setDocumentName("");
-      setDocumentType("");
       loadRequests();
     } catch (err) {
       Alert.alert("Submission Failed", err.message || "Failed to submit request.");
@@ -176,357 +185,388 @@ export default function WfhScreen({ onBack }) {
     }
   }
 
-  async function handleCancel(id) {
-    Alert.alert("Cancel Request", "Are you sure you want to cancel this pending WFH request?", [
-      { text: "No", style: "cancel" },
-      {
-        text: "Yes, Cancel",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await api.cancelWfh(id);
-            Alert.alert("Cancelled", "WFH request has been cancelled.");
-            loadRequests();
-          } catch (err) {
-            Alert.alert("Error", err.message);
-          }
-        },
-      },
-    ]);
-  }
-
-  function getStatusStyle(status) {
-    switch (status) {
-      case "APPROVED":
-        return { bg: "#0d2b23", text: "#34d399", border: "#10b981" };
-      case "REJECTED":
-        return { bg: "#351421", text: "#fb7185", border: "#f43f5e" };
-      case "CANCELLED":
-        return { bg: "#1e293b", text: "#94a3b8", border: "#334155" };
-      case "PENDING":
-      default:
-        return { bg: "#332615", text: "#fbbf24", border: "#f59e0b" };
+  async function executeCancel() {
+    if (!cancelTargetId) return;
+    setCancelling(true);
+    try {
+      await api.cancelWfh(cancelTargetId);
+      setCancelTargetId(null);
+      Alert.alert("Success", "WFH request has been cancelled.");
+      loadRequests();
+    } catch (err) {
+      Alert.alert("Error", err.message);
+    } finally {
+      setCancelling(false);
     }
   }
 
-  const selectedDays = countDays(startDate, endDate);
-
   return (
     <View style={styles.container}>
-      {/* HEADER */}
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-          <Text style={styles.backBtnText}>‹ Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Work From Home</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={() => setModalOpen(true)}>
-          <Text style={styles.addBtnText}>+ Apply</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* POLICY CALLOUT CARDS */}
-      <View style={styles.policyRow}>
-        <View style={styles.policyCard}>
-          <Text style={styles.policyTypeTitle}>🏠 Standard WFH</Text>
-          <Text style={styles.policyDesc}>
-            Planned remote work. <Text style={{ color: "#38bdf8", fontWeight: "700" }}>Max 5 days</Text> allowed per request.
-          </Text>
+        {onBack ? (
+          <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 36 }} />
+        )}
+        <View style={styles.headerTitleBox}>
+          <Text style={styles.headerTitle}>Work From Home</Text>
+          <Text style={styles.headerSubtitle}>Remote attendance and approvals</Text>
         </View>
-
-        <View style={[styles.policyCard, styles.policyUrgentCard]}>
-          <Text style={[styles.policyTypeTitle, { color: "#f43f5e" }]}>🚨 Urgent WFH</Text>
-          <Text style={styles.policyDesc}>
-            Medical / emergency. <Text style={{ color: "#f43f5e", fontWeight: "700" }}>Real proof</Text> strictly mandatory.
-          </Text>
-        </View>
-      </View>
-
-      {/* REQUESTS LIST */}
-      {loading ? (
-        <View style={styles.loaderCenter}>
-          <ActivityIndicator color="#38bdf8" size="large" />
-        </View>
-      ) : (
-        <FlatList
-          data={requests}
-          keyExtractor={(item, index) => item._id || String(index)}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                loadRequests();
-              }}
-              tintColor="#38bdf8"
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyIcon}>🏠</Text>
-              <Text style={styles.emptyTitle}>No WFH Requests Yet</Text>
-              <Text style={styles.emptySub}>
-                Tap "+ Apply" to submit a Standard (max 5 days) or Urgent WFH request with document proof.
-              </Text>
-            </View>
-          }
-          renderItem={({ item }) => {
-            const st = getStatusStyle(item.status);
-            const isUrgent = item.wfhType === "URGENT";
-            return (
-              <View style={[styles.card, isUrgent && styles.urgentCardBorder]}>
-                <View style={styles.cardTop}>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.typeBadgeRow}>
-                      {isUrgent ? (
-                        <View style={styles.urgentBadge}>
-                          <Text style={styles.urgentBadgeText}>🚨 URGENT EMERGENCY</Text>
-                        </View>
-                      ) : (
-                        <View style={styles.standardBadge}>
-                          <Text style={styles.standardBadgeText}>🏠 Standard (Max 5d)</Text>
-                        </View>
-                      )}
-                    </View>
-
-                    <Text style={styles.cardDates}>
-                      {item.startDate}{" "}
-                      {item.endDate && item.endDate !== item.startDate ? `➔ ${item.endDate}` : ""}
-                    </Text>
-
-                    <Text style={styles.cardReason}>
-                      {item.reason ? `"${item.reason}"` : "Planned remote work"}
-                    </Text>
-
-                    {item.urgencyReason ? (
-                      <Text style={styles.cardUrgencyReason}>
-                        Emergency Note: {item.urgencyReason}
-                      </Text>
-                    ) : null}
-                  </View>
-
-                  <View
-                    style={[
-                      styles.statusPill,
-                      {
-                        backgroundColor: st.bg,
-                        borderColor: st.border,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.statusText, { color: st.text }]}>
-                      {item.status || "PENDING"}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* ATTACHED REAL DOCUMENT CHIP */}
-                {item.documentUrl ? (
-                  <View style={styles.docChip}>
-                    <Text style={styles.docChipIcon}>📄</Text>
-                    <Text style={styles.docChipText} numberOfLines={1}>
-                      Verified Proof: {item.documentName || "document_proof.pdf"}
-                    </Text>
-                  </View>
-                ) : null}
-
-                {/* DECISION COMMENT */}
-                {item.decisionComment ? (
-                  <View style={styles.commentBox}>
-                    <Text style={styles.commentText}>
-                      Decision Note: "{item.decisionComment}"
-                    </Text>
-                  </View>
-                ) : null}
-
-                {/* CANCEL BUTTON IF PENDING */}
-                {item.status === "PENDING" && (
-                  <TouchableOpacity
-                    style={styles.cancelBtn}
-                    onPress={() => handleCancel(item._id)}
-                  >
-                    <Text style={styles.cancelBtnText}>✕ Cancel Request</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            );
+        <TouchableOpacity
+          style={styles.refreshIconBtn}
+          onPress={() => {
+            setRefreshing(true);
+            loadRequests();
           }}
-        />
-      )}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="refresh-outline" size={20} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
 
-      {/* APPLY WFH MODAL */}
-      <Modal visible={modalOpen} animationType="slide" transparent>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalContent}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Apply for Work From Home</Text>
-                <TouchableOpacity onPress={() => setModalOpen(false)}>
-                  <Text style={styles.modalCloseText}>✕</Text>
-                </TouchableOpacity>
-              </View>
+      {/* Segmented Switch */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === "MY_REQUESTS" && styles.tabButtonActive]}
+          onPress={() => setActiveTab("MY_REQUESTS")}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name="list-outline"
+            size={16}
+            color={activeTab === "MY_REQUESTS" ? "#FFFFFF" : colors.textSecondary}
+          />
+          <Text
+            style={[styles.tabText, activeTab === "MY_REQUESTS" && styles.tabTextActive]}
+          >
+            My Requests ({requests.length})
+          </Text>
+        </TouchableOpacity>
 
-              {/* STEP 1: SELECT 2 TYPES OF WFH */}
-              <Text style={styles.sectionHeading}>1. SELECT WFH CATEGORY</Text>
-              <View style={styles.typeSelectorGrid}>
-                <TouchableOpacity
-                  style={[
-                    styles.typeSelectorCard,
-                    wfhType === "STANDARD" && styles.typeSelectorCardActive,
-                  ]}
-                  onPress={() => setWfhType("STANDARD")}
-                >
-                  <Text style={styles.typeIcon}>🏠</Text>
-                  <Text style={styles.typeName}>Standard WFH</Text>
-                  <Text style={styles.typeQuota}>Quota: Max 5 Days</Text>
-                  <Text style={styles.typeHint}>Standard planned tasks</Text>
-                </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === "APPLY" && styles.tabButtonActive]}
+          onPress={() => setActiveTab("APPLY")}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name="add-circle-outline"
+            size={16}
+            color={activeTab === "APPLY" ? "#FFFFFF" : colors.textSecondary}
+          />
+          <Text style={[styles.tabText, activeTab === "APPLY" && styles.tabTextActive]}>
+            Apply for WFH
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-                <TouchableOpacity
-                  style={[
-                    styles.typeSelectorCard,
-                    wfhType === "URGENT" && styles.typeSelectorCardActiveUrgent,
-                  ]}
-                  onPress={() => setWfhType("URGENT")}
-                >
-                  <Text style={styles.typeIcon}>🚨</Text>
-                  <Text style={[styles.typeName, { color: "#f43f5e" }]}>Urgent WFH</Text>
-                  <Text style={[styles.typeQuota, { color: "#f43f5e" }]}>Document Required</Text>
-                  <Text style={styles.typeHint}>Medical / emergency</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* DURATION WARNING IF STANDARD > 5 DAYS */}
-              {wfhType === "STANDARD" && selectedDays > 5 && (
-                <View style={styles.warningBanner}>
-                  <Text style={styles.warningText}>
-                    ⚠️ Standard WFH allows maximum 5 days. You selected {selectedDays} days. Please adjust dates or switch to Urgent WFH with document proof.
-                  </Text>
-                </View>
-              )}
-
-              {/* DATES */}
-              <Text style={styles.sectionHeading}>2. DURATION ({selectedDays} DAY{selectedDays !== 1 ? "S" : ""})</Text>
-              <View style={styles.dateRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.label}>START DATE</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={startDate}
-                    onChangeText={setStartDate}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor="#475569"
-                  />
-                </View>
-                <View style={{ width: 12 }} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.label}>END DATE</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={endDate}
-                    onChangeText={setEndDate}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor="#475569"
-                  />
-                </View>
-              </View>
-
-              {/* REASON */}
-              <Text style={styles.label}>WORK / TASK REASON</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={reason}
-                onChangeText={setReason}
-                placeholder="Key deliverables and tasks planned during WFH..."
-                placeholderTextColor="#475569"
-                multiline
-                numberOfLines={2}
+      {activeTab === "MY_REQUESTS" ? (
+        loading ? (
+          <View style={styles.centerLoader}>
+            <ActivityIndicator color={colors.primary} size="large" />
+            <Text style={styles.loadingText}>Loading WFH requests...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={requests}
+            keyExtractor={(item) => item._id}
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => {
+                  setRefreshing(true);
+                  loadRequests();
+                }}
+                tintColor={colors.primary}
               />
+            }
+            ListEmptyComponent={
+              <WateryCard style={styles.emptyCard}>
+                <Ionicons name="laptop-outline" size={44} color={colors.textMuted} />
+                <Text style={styles.emptyTitle}>No WFH Requests Yet</Text>
+                <Text style={styles.emptySub}>
+                  Apply for remote work using the "Apply for WFH" tab above.
+                </Text>
+              </WateryCard>
+            }
+            renderItem={({ item }) => {
+              const isUrgent = item.wfhType === "URGENT";
+              const isPending = item.status === "PENDING";
 
-              {/* IF URGENT: URGENCY DETAILS + MANDATORY DOCUMENT UPLOAD */}
-              {wfhType === "URGENT" && (
-                <View style={styles.urgentUploadSection}>
-                  <Text style={styles.urgentSectionTitle}>
-                    🚨 MANDATORY EMERGENCY PROOF
-                  </Text>
-
-                  <Text style={styles.label}>EMERGENCY JUSTIFICATION</Text>
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    value={urgencyReason}
-                    onChangeText={setUrgencyReason}
-                    placeholder="Medical reason, family emergency, or critical situation..."
-                    placeholderTextColor="#475569"
-                    multiline
-                    numberOfLines={2}
-                  />
-
-                  <Text style={[styles.label, { marginTop: 10 }]}>
-                    UPLOAD REAL DOCUMENT PROOF (PDF / IMAGE) *
-                  </Text>
-
-                  {documentData ? (
-                    <View style={styles.filePreviewCard}>
-                      <Text style={styles.fileIcon}>📄</Text>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.fileName} numberOfLines={1}>
-                          {documentName || "Attached_Document.pdf"}
+              return (
+                <WateryCard style={styles.requestCard} elevated>
+                  <View style={styles.cardHeader}>
+                    <View style={styles.dateBlock}>
+                      <View style={styles.typeBadge}>
+                        <Ionicons
+                          name={isUrgent ? "alert-circle" : "calendar-outline"}
+                          size={12}
+                          color={isUrgent ? "#B91C1C" : colors.primary}
+                        />
+                        <Text
+                          style={[
+                            styles.typeBadgeText,
+                            { color: isUrgent ? "#B91C1C" : colors.primaryDark },
+                          ]}
+                        >
+                          {isUrgent ? "URGENT WFH" : "STANDARD (MAX 5D)"}
                         </Text>
-                        <Text style={styles.fileStatus}>✓ Ready to upload with request</Text>
                       </View>
-                      <TouchableOpacity
-                        style={styles.removeFileBtn}
-                        onPress={() => {
-                          setDocumentData(null);
-                          setDocumentName("");
-                          setDocumentType("");
-                        }}
-                      >
-                        <Text style={styles.removeFileText}>Remove</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <TouchableOpacity style={styles.uploadBtn} onPress={handlePickFile}>
-                      <Text style={styles.uploadIcon}>📎</Text>
-                      <Text style={styles.uploadBtnText}>
-                        Select Real Document (Medical Slip / Doctor Note / PDF)
+                      <Text style={styles.dateRange}>
+                        {item.startDate} → {item.endDate}
                       </Text>
-                      <Text style={styles.uploadSubtext}>Supports PDF, PNG, JPG, JPEG up to 15MB</Text>
+                      <Text style={styles.daysCount}>
+                        Duration: {countDays(item.startDate, item.endDate)} day(s)
+                      </Text>
+                    </View>
+
+                    <StatusBadge status={item.status} size="sm" />
+                  </View>
+
+                  <Text style={styles.reasonText}>
+                    <Text style={{ fontWeight: "700", color: colors.textPrimary }}>
+                      Reason:{" "}
+                    </Text>
+                    {item.reason || "No description provided."}
+                  </Text>
+
+                  {item.documentUrl && (
+                    <TouchableOpacity
+                      style={styles.documentRow}
+                      onPress={() => setPreviewDoc(item)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="document-attach" size={16} color={colors.primary} />
+                      <Text style={styles.documentRowText} numberOfLines={1}>
+                        Attached Proof: {item.documentName || "Verification Document"}
+                      </Text>
                     </TouchableOpacity>
                   )}
+
+                  {isPending && (
+                    <TouchableOpacity
+                      style={styles.cancelAction}
+                      onPress={() => setCancelTargetId(item._id)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="close-circle-outline" size={16} color="#DC2626" />
+                      <Text style={styles.cancelActionText}>Cancel Pending Request</Text>
+                    </TouchableOpacity>
+                  )}
+                </WateryCard>
+              );
+            }}
+          />
+        )
+      ) : (
+        /* APPLY FOR WFH FORM */
+        <ScrollView contentContainerStyle={styles.formScroll}>
+          {/* Policy Information Box */}
+          <WateryCard style={styles.policyCard} tint>
+            <View style={styles.policyHeader}>
+              <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
+              <Text style={styles.policyTitle}>VorldX WFH Policy Rules</Text>
+            </View>
+            <Text style={styles.policyItem}>
+              • Standard WFH allows up to 5 days per employee each month.
+            </Text>
+            <Text style={styles.policyItem}>
+              • Urgent WFH requires verified document proof (medical or emergency).
+            </Text>
+            <Text style={styles.policyItem}>
+              • Daily office-wide capacity limit of 5 remote approvals applies.
+            </Text>
+          </WateryCard>
+
+          {/* Type Selector Tabs */}
+          <View style={styles.typeSelectorRow}>
+            <TouchableOpacity
+              style={[
+                styles.typeOption,
+                wfhType === "STANDARD" && styles.typeOptionActive,
+              ]}
+              onPress={() => setWfhType("STANDARD")}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="briefcase-outline"
+                size={18}
+                color={wfhType === "STANDARD" ? colors.darkButton : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.typeOptionText,
+                  wfhType === "STANDARD" && styles.typeOptionTextActive,
+                ]}
+              >
+                Standard (≤ 5 Days)
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.typeOption,
+                wfhType === "URGENT" && styles.typeOptionActive,
+              ]}
+              onPress={() => setWfhType("URGENT")}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="medical-outline"
+                size={18}
+                color={wfhType === "URGENT" ? "#DC2626" : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.typeOptionText,
+                  wfhType === "URGENT" && styles.typeOptionTextActive,
+                ]}
+              >
+                Urgent / Medical Proof
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Dates Row */}
+          <View style={styles.dateInputsRow}>
+            <View style={styles.dateCol}>
+              <Text style={styles.fieldLabel}>START DATE (YYYY-MM-DD)</Text>
+              <TextInput
+                style={styles.textInput}
+                value={startDate}
+                onChangeText={setStartDate}
+                placeholder="2026-10-21"
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
+
+            <View style={styles.dateCol}>
+              <Text style={styles.fieldLabel}>END DATE (YYYY-MM-DD)</Text>
+              <TextInput
+                style={styles.textInput}
+                value={endDate}
+                onChangeText={setEndDate}
+                placeholder="2026-10-21"
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
+          </View>
+
+          {/* Calculated Duration Badge */}
+          <View style={styles.durationBadgeRow}>
+            <Ionicons name="time-outline" size={15} color={colors.primary} />
+            <Text style={styles.durationBadgeText}>
+              Selected Duration:{" "}
+              <Text style={{ fontWeight: "800", color: colors.primaryDark }}>
+                {selectedDays} Day(s)
+              </Text>
+            </Text>
+          </View>
+
+          {/* Reason Input */}
+          <View style={styles.formGroup}>
+            <Text style={styles.fieldLabel}>REASON FOR WORK FROM HOME</Text>
+            <TextInput
+              style={[styles.textInput, styles.textArea]}
+              value={reason}
+              onChangeText={setReason}
+              placeholder="State the purpose of your remote work arrangement..."
+              placeholderTextColor={colors.textMuted}
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+
+          {/* Document Upload for Urgent WFH */}
+          {wfhType === "URGENT" && (
+            <View style={styles.formGroup}>
+              <Text style={styles.fieldLabel}>SUPPORTING PROOF DOCUMENT (REQUIRED)</Text>
+              <TouchableOpacity
+                style={styles.uploadBox}
+                onPress={handlePickFile}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={documentData ? "checkmark-circle" : "cloud-upload-outline"}
+                  size={26}
+                  color={documentData ? "#15803D" : colors.primary}
+                />
+                <Text style={styles.uploadTitle}>
+                  {documentName || "Tap to select prescription / emergency document"}
+                </Text>
+                <Text style={styles.uploadSubtitle}>Supports PDF, JPG, PNG up to 15MB</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* High-Contrast Dark Submit Button */}
+          <DarkButton
+            title={
+              wfhType === "URGENT"
+                ? "Submit Urgent WFH Request"
+                : "Submit Standard WFH Request"
+            }
+            onPress={handleApply}
+            loading={submitting}
+            icon={<Ionicons name="send" size={17} color="#FFFFFF" />}
+            style={{ marginTop: spacing.md }}
+          />
+        </ScrollView>
+      )}
+
+      {/* Confirmation Modal for Request Cancellation */}
+      <ConfirmationModal
+        visible={Boolean(cancelTargetId)}
+        title="Cancel WFH Request?"
+        message="This pending remote work request will be cancelled immediately."
+        confirmLabel="Yes, Cancel"
+        isDanger
+        loading={cancelling}
+        onConfirm={executeCancel}
+        onCancel={() => setCancelTargetId(null)}
+      />
+
+      {/* Document Preview Modal */}
+      <Modal
+        visible={Boolean(previewDoc)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewDoc(null)}
+      >
+        <View style={styles.docModalBackdrop}>
+          <View style={styles.docModalBox}>
+            <View style={styles.docModalHeader}>
+              <Text style={styles.docModalTitle} numberOfLines={1}>
+                {previewDoc?.documentName || "Attached Proof"}
+              </Text>
+              <TouchableOpacity onPress={() => setPreviewDoc(null)}>
+                <Ionicons name="close" size={24} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.docModalBody}>
+              {previewDoc?.documentUrl?.includes("image") ||
+              previewDoc?.documentName?.match(/\.(jpg|jpeg|png)$/i) ? (
+                <Image
+                  source={{ uri: previewDoc.documentUrl }}
+                  style={styles.previewImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={styles.docFileFallback}>
+                  <Ionicons name="document-text" size={56} color={colors.primary} />
+                  <Text style={styles.docFallbackName}>
+                    {previewDoc?.documentName}
+                  </Text>
+                  <Text style={styles.docFallbackNote}>
+                    Verified official document attached
+                  </Text>
                 </View>
               )}
-
-              {/* ACTIONS */}
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.cancelModalBtn}
-                  onPress={() => setModalOpen(false)}
-                >
-                  <Text style={styles.cancelModalBtnText}>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.submitBtn,
-                    wfhType === "URGENT" && styles.submitBtnUrgent,
-                    submitting && styles.btnDisabled,
-                  ]}
-                  onPress={handleApply}
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <ActivityIndicator color="#ffffff" />
-                  ) : (
-                    <Text style={styles.submitBtnText}>
-                      {wfhType === "URGENT"
-                        ? "🚨 Submit Urgent Request"
-                        : "✓ Submit WFH Request"}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+            </View>
           </View>
         </View>
       </Modal>
@@ -537,460 +577,354 @@ export default function WfhScreen({ onBack }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0b0f19",
+    backgroundColor: colors.bgWatery,
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 18,
-    paddingTop: 50,
-    paddingBottom: 16,
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+    paddingTop: 48,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: "#1e2c44",
+    borderBottomColor: colors.borderLight,
   },
   backBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: "#131b2e",
-  },
-  backBtnText: {
-    color: "#38bdf8",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  headerTitle: {
-    color: "#f8fafc",
-    fontSize: 17,
-    fontWeight: "800",
-  },
-  addBtn: {
-    backgroundColor: "#4f46e5",
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 9,
-  },
-  addBtnText: {
-    color: "#ffffff",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  policyRow: {
-    flexDirection: "row",
-    gap: 10,
-    paddingHorizontal: 18,
-    marginTop: 14,
-    marginBottom: 6,
-  },
-  policyCard: {
-    flex: 1,
-    backgroundColor: "#111827",
-    padding: 12,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceWatery,
     borderWidth: 1,
-    borderColor: "#1e293b",
-  },
-  policyUrgentCard: {
-    borderColor: "#5c1d2e",
-    backgroundColor: "#1a121c",
-  },
-  policyTypeTitle: {
-    color: "#38bdf8",
-    fontSize: 12,
-    fontWeight: "800",
-    marginBottom: 3,
-  },
-  policyDesc: {
-    color: "#94a3b8",
-    fontSize: 10.5,
-    lineHeight: 14,
-  },
-  loaderCenter: {
-    flex: 1,
+    borderColor: colors.borderWatery,
     alignItems: "center",
     justifyContent: "center",
   },
-  listContent: {
-    padding: 18,
-    paddingBottom: 40,
+  headerTitleBox: {
+    alignItems: "center",
   },
-  card: {
-    backgroundColor: "#111827",
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 14,
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: colors.textPrimary,
+  },
+  headerSubtitle: {
+    fontSize: 11.5,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  refreshIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceWatery,
     borderWidth: 1,
-    borderColor: "#1e293b",
+    borderColor: colors.borderWatery,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  urgentCardBorder: {
-    borderColor: "#e11d48",
-    borderWidth: 1.5,
-  },
-  cardTop: {
+  tabContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
+    padding: spacing.md,
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceWatery,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderWatery,
   },
-  typeBadgeRow: {
-    marginBottom: 6,
-  },
-  urgentBadge: {
-    backgroundColor: "#351421",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: "flex-start",
+  tabButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#e11d48",
+    borderColor: colors.borderWatery,
+    gap: 6,
   },
-  urgentBadgeText: {
-    color: "#f43f5e",
-    fontSize: 9.5,
+  tabButtonActive: {
+    backgroundColor: colors.darkButton,
+    borderColor: colors.darkButton,
+  },
+  tabText: {
+    fontSize: 12.5,
+    fontWeight: "700",
+    color: colors.textSecondary,
+  },
+  tabTextActive: {
+    color: "#FFFFFF",
+  },
+  centerLoader: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  listContent: {
+    padding: spacing.lg,
+    paddingBottom: 32,
+  },
+  requestCard: {
+    marginBottom: spacing.md,
+    padding: spacing.lg,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: spacing.sm,
+  },
+  dateBlock: {
+    flex: 1,
+  },
+  typeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 4,
+  },
+  typeBadgeText: {
+    fontSize: 10,
     fontWeight: "800",
     letterSpacing: 0.5,
   },
-  standardBadge: {
-    backgroundColor: "#132742",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: "flex-start",
-    borderWidth: 1,
-    borderColor: "#204670",
-  },
-  standardBadgeText: {
-    color: "#38bdf8",
-    fontSize: 9.5,
-    fontWeight: "700",
-  },
-  cardDates: {
-    color: "#f8fafc",
+  dateRange: {
     fontSize: 15,
-    fontWeight: "700",
-  },
-  cardReason: {
-    color: "#94a3b8",
-    fontSize: 12.5,
-    marginTop: 4,
-    lineHeight: 17,
-  },
-  cardUrgencyReason: {
-    color: "#fca5a5",
-    fontSize: 11.5,
-    marginTop: 4,
-    fontStyle: "italic",
-  },
-  statusPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  statusText: {
-    fontSize: 10.5,
     fontWeight: "800",
+    color: colors.textPrimary,
   },
-  docChip: {
+  daysCount: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  reasonText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  documentRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 7,
-    backgroundColor: "#0f1626",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
+    backgroundColor: colors.bgWateryDeep,
+    padding: 8,
+    borderRadius: radii.sm,
     marginTop: 10,
-    borderWidth: 1,
-    borderColor: "#22324a",
+    gap: 6,
   },
-  docChipIcon: {
-    fontSize: 13,
-  },
-  docChipText: {
-    color: "#38bdf8",
-    fontSize: 11,
+  documentRowText: {
+    fontSize: 12,
     fontWeight: "600",
+    color: colors.primaryDark,
     flex: 1,
   },
-  commentBox: {
-    backgroundColor: "#0d131f",
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: "#38bdf8",
-  },
-  commentText: {
-    color: "#94a3b8",
-    fontSize: 11.5,
-    fontStyle: "italic",
-  },
-  cancelBtn: {
-    marginTop: 12,
-    alignSelf: "flex-start",
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    backgroundColor: "#29121a",
-    borderWidth: 1,
-    borderColor: "#5c2033",
-  },
-  cancelBtnText: {
-    color: "#fb7185",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  emptyBox: {
-    paddingVertical: 60,
+  cancelAction: {
+    flexDirection: "row",
     alignItems: "center",
+    marginTop: 12,
+    gap: 5,
+    alignSelf: "flex-start",
   },
-  emptyIcon: {
-    fontSize: 40,
-    marginBottom: 10,
+  cancelActionText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#DC2626",
+  },
+  emptyCard: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.xxl,
+    marginTop: 20,
   },
   emptyTitle: {
-    color: "#f8fafc",
     fontSize: 16,
     fontWeight: "700",
+    color: colors.textPrimary,
+    marginTop: 12,
   },
   emptySub: {
-    color: "#64748b",
-    fontSize: 12,
+    fontSize: 13,
+    color: colors.textSecondary,
     textAlign: "center",
-    maxWidth: 280,
-    marginTop: 6,
-    lineHeight: 17,
+    marginTop: 4,
   },
-
-  /* MODAL STYLES */
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(3, 7, 18, 0.8)",
-    justifyContent: "flex-end",
+  formScroll: {
+    padding: spacing.lg,
+    paddingBottom: 40,
   },
-  modalContent: {
-    backgroundColor: "#111827",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 22,
-    maxHeight: "88%",
-    borderWidth: 1,
-    borderColor: "#1e293b",
+  policyCard: {
+    marginBottom: spacing.lg,
+    padding: spacing.md,
   },
-  modalHeader: {
+  policyHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    gap: 6,
+    marginBottom: 6,
   },
-  modalTitle: {
-    color: "#f8fafc",
-    fontSize: 17,
+  policyTitle: {
+    fontSize: 13,
     fontWeight: "800",
+    color: colors.primaryDark,
   },
-  modalCloseText: {
-    color: "#94a3b8",
-    fontSize: 18,
-    padding: 4,
+  policyItem: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginTop: 2,
   },
-  sectionHeading: {
-    color: "#64748b",
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-    marginTop: 8,
-    marginBottom: 10,
-  },
-  typeSelectorGrid: {
+  typeSelectorRow: {
     flexDirection: "row",
-    gap: 10,
-    marginBottom: 14,
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
   },
-  typeSelectorCard: {
+  typeOption: {
     flex: 1,
-    backgroundColor: "#0b0f19",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+    paddingVertical: 12,
+    borderRadius: radii.lg,
     borderWidth: 1.5,
-    borderColor: "#1e2c44",
-    borderRadius: 12,
-    padding: 12,
-    alignItems: "center",
+    borderColor: colors.borderWatery,
+    gap: 6,
   },
-  typeSelectorCardActive: {
-    borderColor: "#38bdf8",
-    backgroundColor: "#12253d",
+  typeOptionActive: {
+    borderColor: colors.darkButton,
+    backgroundColor: colors.surfaceWatery,
   },
-  typeSelectorCardActiveUrgent: {
-    borderColor: "#e11d48",
-    backgroundColor: "#2e121c",
-  },
-  typeIcon: {
-    fontSize: 22,
-    marginBottom: 4,
-  },
-  typeName: {
-    color: "#f8fafc",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  typeQuota: {
-    color: "#38bdf8",
-    fontSize: 10,
+  typeOptionText: {
+    fontSize: 12.5,
     fontWeight: "700",
-    marginTop: 2,
+    color: colors.textSecondary,
   },
-  typeHint: {
-    color: "#64748b",
-    fontSize: 9.5,
-    marginTop: 2,
+  typeOptionTextActive: {
+    color: colors.textPrimary,
   },
-  warningBanner: {
-    backgroundColor: "#332615",
-    borderWidth: 1,
-    borderColor: "#f59e0b",
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  warningText: {
-    color: "#fbbf24",
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  dateRow: {
+  dateInputsRow: {
     flexDirection: "row",
-    marginBottom: 12,
+    gap: spacing.md,
+    marginBottom: spacing.md,
   },
-  label: {
-    color: "#94a3b8",
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 0.6,
-    marginBottom: 5,
+  dateCol: {
+    flex: 1,
   },
-  input: {
-    backgroundColor: "#0b0f19",
+  fieldLabel: {
+    fontSize: 10.5,
+    fontWeight: "800",
+    color: colors.textSecondary,
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  textInput: {
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#22324a",
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    borderColor: colors.borderWatery,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
     paddingVertical: 10,
-    color: "#f8fafc",
-    fontSize: 13,
-    marginBottom: 12,
+    fontSize: 13.5,
+    color: colors.textPrimary,
   },
   textArea: {
-    minHeight: 52,
+    height: 70,
     textAlignVertical: "top",
   },
-  urgentUploadSection: {
-    backgroundColor: "#1a121c",
-    borderWidth: 1,
-    borderColor: "#e11d48",
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 14,
-  },
-  urgentSectionTitle: {
-    color: "#f43f5e",
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
-  uploadBtn: {
-    borderWidth: 1.5,
-    borderStyle: "dashed",
-    borderColor: "#e11d48",
-    borderRadius: 10,
-    padding: 16,
+  durationBadgeRow: {
+    flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#24121a",
+    backgroundColor: colors.surfaceWatery,
+    padding: spacing.sm,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    marginBottom: spacing.md,
+    gap: 6,
   },
-  uploadIcon: {
-    fontSize: 22,
-    marginBottom: 4,
-  },
-  uploadBtnText: {
-    color: "#fda4af",
+  durationBadgeText: {
     fontSize: 12,
+    color: colors.textSecondary,
+  },
+  formGroup: {
+    marginBottom: spacing.md,
+  },
+  uploadBox: {
+    backgroundColor: colors.surfaceWatery,
+    borderWidth: 1.5,
+    borderColor: colors.borderWateryActive,
+    borderStyle: "dashed",
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  uploadTitle: {
+    fontSize: 13,
     fontWeight: "700",
+    color: colors.textPrimary,
+    marginTop: 6,
     textAlign: "center",
   },
-  uploadSubtext: {
-    color: "#94a3b8",
-    fontSize: 10,
-    marginTop: 3,
-  },
-  filePreviewCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "#090d15",
-    padding: 10,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: "#38bdf8",
-  },
-  fileIcon: {
-    fontSize: 20,
-  },
-  fileName: {
-    color: "#f8fafc",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  fileStatus: {
-    color: "#34d399",
-    fontSize: 10,
+  uploadSubtitle: {
+    fontSize: 11,
+    color: colors.textMuted,
     marginTop: 2,
   },
-  removeFileBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    backgroundColor: "#351421",
-  },
-  removeFileText: {
-    color: "#fb7185",
-    fontSize: 10,
-    fontWeight: "700",
-  },
-  modalActions: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 10,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#1e293b",
-  },
-  cancelModalBtn: {
+  docModalBackdrop: {
     flex: 1,
-    paddingVertical: 12,
+    backgroundColor: "rgba(15, 23, 42, 0.75)",
+    justifyContent: "center",
     alignItems: "center",
-    borderRadius: 10,
-    backgroundColor: "#1e293b",
+    padding: 20,
   },
-  cancelModalBtnText: {
-    color: "#cbd5e1",
-    fontSize: 13,
-    fontWeight: "600",
+  docModalBox: {
+    width: "100%",
+    maxHeight: "80%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: radii.xl,
+    padding: spacing.lg,
   },
-  submitBtn: {
-    flex: 1.4,
-    paddingVertical: 12,
+  docModalHeader: {
+    flexDirection: "row",
     alignItems: "center",
-    borderRadius: 10,
-    backgroundColor: "#4f46e5",
+    justifyContent: "space-between",
+    marginBottom: spacing.md,
   },
-  submitBtnUrgent: {
-    backgroundColor: "#e11d48",
-  },
-  submitBtnText: {
-    color: "#ffffff",
-    fontSize: 13,
+  docModalTitle: {
+    fontSize: 16,
     fontWeight: "700",
+    color: colors.textPrimary,
+    flex: 1,
   },
-  btnDisabled: {
-    opacity: 0.6,
+  docModalBody: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 200,
+  },
+  previewImage: {
+    width: "100%",
+    height: 300,
+  },
+  docFileFallback: {
+    alignItems: "center",
+    padding: 24,
+  },
+  docFallbackName: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    marginTop: 12,
+  },
+  docFallbackNote: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
   },
 });

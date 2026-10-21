@@ -3,7 +3,6 @@ import { QrSession } from "../models/index.js";
 import { getPolicy } from "./policyService.js";
 
 /**
- * Creates a short-lived QR session (expires in 18 seconds by default).
  */
 export async function createQrSession(userId, officeLocation = "Main Office") {
   const policy = await getPolicy();

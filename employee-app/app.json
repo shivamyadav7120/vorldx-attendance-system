@@ -27,7 +27,8 @@
         {
           "cameraPermission": "Allow VorldX to use your camera to scan office QR codes for attendance."
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }

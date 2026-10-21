@@ -9,11 +9,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import biometricService from "../services/biometricService";
+import { colors, radii, shadows, spacing } from "../theme/tokens";
+import DarkButton from "../components/DarkButton";
+import WateryCard from "../components/WateryCard";
 
 export default function LoginScreen() {
   const { login, loginWithBiometrics } = useAuth();
@@ -23,8 +26,6 @@ export default function LoginScreen() {
   const [showServerConfig, setShowServerConfig] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-
-  // Biometric states
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState("Biometrics");
@@ -97,55 +98,66 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* BRAND LOGO HEADER */}
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        {/* Brand Header */}
         <View style={styles.brandBox}>
           <View style={styles.logoMark}>
-            <Text style={styles.logoLetter}>V</Text>
+            <Ionicons name="finger-print" size={32} color={colors.primary} />
           </View>
           <Text style={styles.brandTitle}>
             Vorld<Text style={styles.brandHighlight}>X</Text>
           </Text>
-          <Text style={styles.brandSubtitle}>Employee Attendance System</Text>
+          <Text style={styles.brandSubtitle}>ENTERPRISE ATTENDANCE & HRMS</Text>
         </View>
 
-        {/* LOGIN FORM CARD */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Welcome Back</Text>
-          <Text style={styles.cardSubtitle}>Sign in with your employee credentials</Text>
+        {/* Main Watery Form Card */}
+        <WateryCard style={styles.card} elevated>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Welcome Back</Text>
+            <Text style={styles.cardSubtitle}>Sign in to your employee account</Text>
+          </View>
 
           {error ? (
             <View style={styles.errorBox}>
+              <Ionicons name="alert-circle" size={18} color="#DC2626" />
               <Text style={styles.errorText}>{error}</Text>
             </View>
           ) : null}
 
-          {/* 1-TAP BIOMETRIC LOGIN BUTTON (IF ENROLLED) */}
+          {/* 1-Tap Biometric Hero Card */}
           {biometricEnabled && (
             <View style={styles.biometricSection}>
               <TouchableOpacity
-                style={[styles.biometricBtn, biometricLoading && styles.btnDisabled]}
+                style={[styles.biometricCard, biometricLoading && styles.disabled]}
                 onPress={handleBiometricLogin}
                 disabled={biometricLoading}
-                activeOpacity={0.8}
+                activeOpacity={0.82}
               >
                 <View style={styles.biometricIconBadge}>
-                  <Text style={styles.biometricEmoji}>👆</Text>
+                  <Ionicons
+                    name={
+                      biometricType.toLowerCase().includes("face")
+                        ? "scan-outline"
+                        : "finger-print-outline"
+                    }
+                    size={24}
+                    color={colors.primary}
+                  />
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.biometricBtnTitle}>
-                    Login with {biometricType}
-                  </Text>
-                  <Text style={styles.biometricBtnSub} numberOfLines={1}>
+
+                <View style={styles.biometricInfo}>
+                  <Text style={styles.biometricTitle}>Unlock with {biometricType}</Text>
+                  <Text style={styles.biometricSubtitle} numberOfLines={1}>
                     {biometricAccount.email
-                      ? `Instant sign-in for ${biometricAccount.email}`
-                      : "Tap to scan fingerprint or face"}
+                      ? `Fast sign-in for ${biometricAccount.email}`
+                      : "Tap to verify sensor"}
                   </Text>
                 </View>
+
                 {biometricLoading ? (
-                  <ActivityIndicator color="#38bdf8" />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
-                  <Text style={styles.biometricArrow}>➔</Text>
+                  <Ionicons name="arrow-forward" size={18} color={colors.primary} />
                 )}
               </TouchableOpacity>
 
@@ -157,62 +169,73 @@ export default function LoginScreen() {
             </View>
           )}
 
-          {/* EMAIL & PASSWORD FIELDS */}
+          {/* Email Field */}
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>WORK EMAIL</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. anuraj@gmail.com"
-              placeholderTextColor="#475569"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            <View style={styles.inputContainer}>
+              <Ionicons name="mail-outline" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. employee@vorldx.com"
+                placeholderTextColor={colors.textMuted}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
           </View>
 
+          {/* Password Field */}
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>PASSWORD</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your password"
-              placeholderTextColor="#475569"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
+            <View style={styles.inputContainer}>
+              <Ionicons name="lock-closed-outline" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your password"
+                placeholderTextColor={colors.textMuted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </View>
           </View>
 
-          <TouchableOpacity
-            style={[styles.loginBtn, submitting && styles.btnDisabled]}
+          {/* Signature Dark Button */}
+          <DarkButton
+            title="Sign In with Password"
             onPress={handleLogin}
-            disabled={submitting}
-          >
-            {submitting ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text style={styles.loginBtnText}>Sign In with Password</Text>
-            )}
-          </TouchableOpacity>
+            loading={submitting}
+            style={{ marginTop: 8 }}
+            icon={<Ionicons name="log-in-outline" size={18} color="#FFFFFF" />}
+          />
 
-          {/* BIOMETRIC SETUP HINT IF NOT ENABLED YET */}
+          {/* Biometric Enrollment Hint if available but not enabled */}
           {!biometricEnabled && biometricAvailable && (
             <View style={styles.biometricHintBox}>
-              <Text style={styles.biometricHintIcon}>💡</Text>
+              <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
               <Text style={styles.biometricHintText}>
-                <Text style={{ fontWeight: "700", color: "#38bdf8" }}>Biometric Available:</Text> Sign in with your password, then enable {biometricType} in your Profile for instant 1-tap login!
+                <Text style={{ fontWeight: "700", color: colors.primaryDark }}>Biometrics available: </Text>
+                Sign in with password, then toggle {biometricType} in your profile for fast unlock.
               </Text>
             </View>
           )}
 
-          {/* SERVER CONFIG TOGGLE */}
+          {/* Server Config Collapsible */}
           <TouchableOpacity
             style={styles.configToggle}
-            onPress={() => setShowServerConfig(!showServerConfig)}
+            onPress={() => setShowServerConfig((prev) => !prev)}
+            activeOpacity={0.7}
           >
+            <Ionicons
+              name={showServerConfig ? "chevron-up" : "settings-outline"}
+              size={15}
+              color={colors.primary}
+            />
             <Text style={styles.configToggleText}>
-              {showServerConfig ? "▲ Hide Server Connection" : "⚙ Server Connection Settings"}
+              {showServerConfig ? "Hide Server Settings" : "Configure Backend Server IP"}
             </Text>
           </TouchableOpacity>
 
@@ -223,18 +246,25 @@ export default function LoginScreen() {
                 style={styles.configInput}
                 value={serverUrl}
                 onChangeText={setServerUrl}
-                placeholder="http://192.168.1.83:5000/api"
-                placeholderTextColor="#475569"
+                placeholder="http://10.34.107.125:5000/api"
+                placeholderTextColor={colors.textMuted}
                 autoCapitalize="none"
+                autoCorrect={false}
               />
               <Text style={styles.configHelp}>
-                Point to your Wi-Fi backend IP (e.g. 192.168.X.X:5000/api) or local server.
+                Point to your development IP or company network URL.
               </Text>
             </View>
           )}
-        </View>
+        </WateryCard>
 
-        <Text style={styles.footerNote}>Protected by VorldX Security & Governance</Text>
+        {/* Corporate Trust Footer */}
+        <View style={styles.footer}>
+          <Ionicons name="shield-checkmark-outline" size={14} color={colors.textMuted} />
+          <Text style={styles.footerNote}>
+            VorldX Industries Private Limited · Secure Attendance Infrastructure
+          </Text>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -243,251 +273,231 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0b0f19",
+    backgroundColor: colors.bgWatery,
   },
   scroll: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: 22,
+    padding: spacing.xl,
+    paddingVertical: spacing.xxxl,
   },
   brandBox: {
     alignItems: "center",
-    marginBottom: 26,
+    marginBottom: spacing.xl,
   },
   logoMark: {
     width: 64,
     height: 64,
-    borderRadius: 18,
-    backgroundColor: "#172338",
+    borderRadius: radii.xl,
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: "#38bdf8",
+    borderColor: colors.borderWateryActive,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
-    shadowColor: "#38bdf8",
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-  },
-  logoLetter: {
-    color: "#38bdf8",
-    fontSize: 32,
-    fontWeight: "bold",
+    marginBottom: spacing.md,
+    ...shadows.card,
   },
   brandTitle: {
     fontSize: 28,
-    fontWeight: "800",
-    color: "#f8fafc",
+    fontWeight: "900",
+    color: colors.textPrimary,
     letterSpacing: 0.5,
   },
   brandHighlight: {
-    color: "#38bdf8",
+    color: colors.primary,
   },
   brandSubtitle: {
-    fontSize: 13,
-    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: "800",
+    color: colors.textWatery,
     marginTop: 4,
+    letterSpacing: 1.5,
   },
   card: {
-    backgroundColor: "#111827",
-    borderRadius: 18,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: "#1e293b",
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 14,
+    padding: spacing.xl,
+  },
+  cardHeader: {
+    marginBottom: spacing.lg,
   },
   cardTitle: {
-    fontSize: 21,
+    fontSize: 20,
     fontWeight: "800",
-    color: "#f8fafc",
+    color: colors.textPrimary,
   },
   cardSubtitle: {
-    fontSize: 12.5,
-    color: "#94a3b8",
+    fontSize: 13,
+    color: colors.textSecondary,
     marginTop: 3,
-    marginBottom: 18,
   },
   errorBox: {
-    backgroundColor: "#29121a",
-    borderWidth: 1,
-    borderColor: "#f43f5e",
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
-  },
-  errorText: {
-    color: "#fca5a5",
-    fontSize: 12,
-    lineHeight: 17,
-  },
-
-  /* BIOMETRIC LOGIN SECTION */
-  biometricSection: {
-    marginBottom: 16,
-  },
-  biometricBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    backgroundColor: "linear-gradient(135deg, #13243d, #1a3254)",
-    backgroundColor: "#13243d",
+    backgroundColor: "#FEE2E2",
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+    borderRadius: radii.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    gap: 8,
+  },
+  errorText: {
+    color: "#B91C1C",
+    fontSize: 12.5,
+    fontWeight: "600",
+    flex: 1,
+  },
+  biometricSection: {
+    marginBottom: spacing.lg,
+  },
+  biometricCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surfaceWatery,
     borderWidth: 1.5,
-    borderColor: "#38bdf8",
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    shadowColor: "#38bdf8",
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    borderColor: colors.borderWateryActive,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    gap: 12,
   },
   biometricIconBadge: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: "#1e3557",
+    borderRadius: radii.md,
+    backgroundColor: colors.bgWateryDeep,
     alignItems: "center",
     justifyContent: "center",
   },
-  biometricEmoji: {
-    fontSize: 24,
+  biometricInfo: {
+    flex: 1,
   },
-  biometricBtnTitle: {
-    color: "#f8fafc",
+  biometricTitle: {
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "700",
+    color: colors.textPrimary,
   },
-  biometricBtnSub: {
-    color: "#94a3b8",
-    fontSize: 11,
+  biometricSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
     marginTop: 2,
-  },
-  biometricArrow: {
-    color: "#38bdf8",
-    fontSize: 18,
-    fontWeight: "800",
-    paddingRight: 4,
   },
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginVertical: 18,
+    marginTop: spacing.lg,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "#1e293b",
+    backgroundColor: colors.borderWatery,
   },
   dividerText: {
-    color: "#64748b",
     fontSize: 10,
     fontWeight: "800",
+    color: colors.textMuted,
+    marginHorizontal: 10,
     letterSpacing: 0.8,
+  },
+  fieldGroup: {
+    marginBottom: spacing.md,
+  },
+  label: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: colors.textSecondary,
+    marginBottom: 6,
+    letterSpacing: 0.6,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surfaceWatery,
+    borderWidth: 1,
+    borderColor: colors.borderWatery,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.md,
+  },
+  inputIcon: {
+    marginRight: 8,
+  },
+  input: {
+    flex: 1,
+    height: 46,
+    fontSize: 14,
+    color: colors.textPrimary,
   },
   biometricHintBox: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    backgroundColor: "#0d1a29",
+    alignItems: "center",
+    backgroundColor: colors.bgWateryDeep,
     borderWidth: 1,
-    borderColor: "#1e3957",
-    borderRadius: 10,
-    padding: 11,
-    marginTop: 14,
-  },
-  biometricHintIcon: {
-    fontSize: 15,
-    marginTop: 1,
+    borderColor: colors.bgWateryGlow,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    gap: 8,
   },
   biometricHintText: {
+    fontSize: 12,
+    color: colors.textSecondary,
     flex: 1,
-    color: "#94a3b8",
-    fontSize: 11,
-    lineHeight: 16,
-  },
-
-  /* INPUTS & LOGIN */
-  fieldGroup: {
-    marginBottom: 14,
-  },
-  label: {
-    fontSize: 10.5,
-    color: "#94a3b8",
-    marginBottom: 6,
-    fontWeight: "800",
-    letterSpacing: 0.7,
-  },
-  input: {
-    backgroundColor: "#0b0f19",
-    borderWidth: 1,
-    borderColor: "#1e2c44",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    fontSize: 14,
-    color: "#f8fafc",
-  },
-  loginBtn: {
-    backgroundColor: "#4f46e5",
-    borderRadius: 10,
-    paddingVertical: 13,
-    alignItems: "center",
-    marginTop: 6,
-    shadowColor: "#4f46e5",
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-  },
-  btnDisabled: {
-    opacity: 0.6,
-  },
-  loginBtnText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "700",
+    lineHeight: 17,
   },
   configToggle: {
+    flexDirection: "row",
     alignItems: "center",
-    marginTop: 18,
+    justifyContent: "center",
+    marginTop: spacing.lg,
+    gap: 6,
+    paddingVertical: 4,
   },
   configToggleText: {
-    color: "#64748b",
-    fontSize: 12,
+    fontSize: 12.5,
+    fontWeight: "700",
+    color: colors.primary,
   },
   configBox: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: "#0b0f19",
-    borderRadius: 10,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.surfaceWatery,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: "#1e2c44",
+    borderColor: colors.borderWatery,
   },
   configLabel: {
-    color: "#94a3b8",
     fontSize: 10,
+    fontWeight: "800",
+    color: colors.textSecondary,
     marginBottom: 6,
-    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   configInput: {
-    backgroundColor: "#111827",
+    height: 40,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#22324a",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    color: "#38bdf8",
-    fontSize: 12,
+    borderColor: colors.borderWatery,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.sm,
+    fontSize: 13,
+    color: colors.textPrimary,
   },
   configHelp: {
-    color: "#475569",
-    fontSize: 10,
+    fontSize: 11,
+    color: colors.textMuted,
     marginTop: 6,
-    lineHeight: 14,
+  },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: spacing.xl,
+    gap: 6,
   },
   footerNote: {
-    textAlign: "center",
-    color: "#475569",
     fontSize: 11,
-    marginTop: 24,
+    color: colors.textMuted,
+    textAlign: "center",
+  },
+  disabled: {
+    opacity: 0.6,
   },
 });
