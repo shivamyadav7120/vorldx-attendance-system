@@ -243,4 +243,49 @@ router.patch(
   }
 );
 
+router.patch(
+  "/hr-admins/:id/activate",
+  authenticate,
+  allowRoles("SUPER_ADMIN"),
+  async (req, res, next) => {
+    try {
+      const user = await User.findOne({
+        _id: req.params.id,
+        role: "HR_ADMIN",
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "HR admin not found",
+        });
+      }
+
+      user.active = true;
+      await user.save();
+
+      await Employee.updateOne(
+        { user: user._id },
+        { $set: { active: true } }
+      );
+
+      await logAction({
+        actor: req.user,
+        action: "HR_ADMIN_ACTIVATED",
+        targetType: "User",
+        targetId: user._id,
+        details: { email: user.email },
+        ipAddress: req.ip,
+      });
+
+      return res.json({
+        success: true,
+        message: "HR admin activated successfully",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 export default router;

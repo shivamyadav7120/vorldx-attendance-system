@@ -342,4 +342,68 @@ router.patch(
   }
 );
 
+router.patch(
+  "/employees/:id/activate",
+  authenticate,
+  allowRoles("SUPER_ADMIN", "HR_ADMIN"),
+  async (req, res, next) => {
+    try {
+      const employee = await Employee.findById(req.params.id);
+
+      if (!employee) {
+        return res.status(404).json({
+          success: false,
+          message: "Employee not found",
+        });
+      }
+
+      const linkedUser = employee.user
+        ? await User.findById(employee.user)
+        : null;
+
+      if (!linkedUser) {
+        return res.status(404).json({
+          success: false,
+          message: "Linked user account not found",
+        });
+      }
+
+      if (
+        req.user.role === "HR_ADMIN" &&
+        linkedUser.role !== "EMPLOYEE"
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "HR can activate employees only",
+        });
+      }
+
+      employee.active = true;
+      linkedUser.active = true;
+
+      await employee.save();
+      await linkedUser.save();
+
+      await logAction({
+        actor: req.user,
+        action: "EMPLOYEE_ACTIVATED",
+        targetType: "Employee",
+        targetId: employee._id,
+        details: {
+          employeeId: employee.employeeId,
+          email: employee.email,
+        },
+        ipAddress: req.ip,
+      });
+
+      return res.json({
+        success: true,
+        message: "Employee account activated successfully",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 export default router;

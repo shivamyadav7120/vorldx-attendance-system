@@ -6,7 +6,6 @@ import {
   Clock3,
   Monitor,
   Copy,
-  ExternalLink,
   Check,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -57,12 +56,10 @@ export default function OfficeQR() {
     }
   }
 
-  // Initial load
   useEffect(() => {
     createSession(false);
   }, []);
 
-  // Countdown timer and auto-refresh at 0 seconds
   useEffect(() => {
     if (!session?.expiresAt) return;
 
@@ -182,8 +179,6 @@ export default function OfficeQR() {
             )}
           </div>
 
-
-          {/* 18-Second Countdown bar */}
           <div className="qr-timer">
             <div className="timer-icon">
               <Clock3 size={18} />

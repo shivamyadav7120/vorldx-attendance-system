@@ -402,25 +402,30 @@ router.patch(
         }
       }
 
-      // CONCURRENCY-SAFE DAILY LIMIT VALIDATION FOR "APPROVED"
       if (status === "APPROVED") {
-        const policy = await getPolicy();
-        const maxLimit = policy.maxWfhPerDay || 5;
-        const dates = getDatesInRange(request.startDate, request.endDate);
+        const isUrgent = request.wfhType === "URGENT";
+        const isSuperAdmin = req.user.role === "SUPER_ADMIN";
 
-        for (const date of dates) {
-          const approvedCount = await WfhRequest.countDocuments({
-            _id: { $ne: request._id },
-            status: "APPROVED",
-            startDate: { $lte: date },
-            endDate: { $gte: date },
-          });
+        if (!isUrgent && !isSuperAdmin) {
+          const policy = await getPolicy();
+          const maxLimit = policy.maxWfhPerDay || 5;
+          const dates = getDatesInRange(request.startDate, request.endDate);
 
-          if (approvedCount >= maxLimit) {
-            return res.status(409).json({
-              success: false,
-              message: `Cannot approve request: daily WFH limit of ${maxLimit} employees has already been reached for ${date}`,
+          for (const date of dates) {
+            const approvedCount = await WfhRequest.countDocuments({
+              _id: { $ne: request._id },
+              status: "APPROVED",
+              wfhType: "STANDARD",
+              startDate: { $lte: date },
+              endDate: { $gte: date },
             });
+
+            if (approvedCount >= maxLimit) {
+              return res.status(409).json({
+                success: false,
+                message: `Cannot approve request: daily WFH limit of ${maxLimit} employees has already been reached for ${date}`,
+              });
+            }
           }
         }
       }

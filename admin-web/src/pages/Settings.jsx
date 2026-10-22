@@ -10,12 +10,14 @@ import {
   Home,
   QrCode,
   CheckCircle,
+  Lock,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import api, { errorMessage } from "../services/api";
+import api, { errorMessage, USER_KEY, TOKEN_KEY } from "../services/api";
 
 export default function Settings() {
   const { user, logout, isSuperAdmin } = useAuth();
+
   const [policy, setPolicy] = useState({
     officeStartTime: "09:00",
     checkInCutoffTime: "09:30",
@@ -24,10 +26,28 @@ export default function Settings() {
     qrExpirySeconds: 18,
     timezone: "Asia/Kolkata",
   });
-  const [busy, setBusy] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState("");
-  const [error, setError] = useState("");
+  const [busyPolicy, setBusyPolicy] = useState(true);
+  const [savingPolicy, setSavingPolicy] = useState(false);
+  const [policyNotice, setPolicyNotice] = useState("");
+  const [policyError, setPolicyError] = useState("");
+
+  const [profileForm, setProfileForm] = useState({
+    name: user?.name || "",
+    phone: user?.phone || "",
+    designation: user?.designation || "",
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileNotice, setProfileNotice] = useState("");
+  const [profileError, setProfileError] = useState("");
+
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordNotice, setPasswordNotice] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   useEffect(() => {
     async function fetchPolicy() {
@@ -39,27 +59,102 @@ export default function Settings() {
       } catch (e) {
         console.error("Failed to fetch policy:", e);
       } finally {
-        setBusy(false);
+        setBusyPolicy(false);
       }
     }
     fetchPolicy();
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      setProfileForm({
+        name: user.name || "",
+        phone: user.phone || "",
+        designation: user.designation || "",
+      });
+    }
+  }, [user]);
+
   async function handleSavePolicy(e) {
     e.preventDefault();
     if (!isSuperAdmin) return;
 
-    setSaving(true);
-    setNotice("");
-    setError("");
+    setSavingPolicy(true);
+    setPolicyNotice("");
+    setPolicyError("");
 
     try {
       await api.put("/policies/attendance", policy);
-      setNotice("Attendance policy updated successfully.");
+      setPolicyNotice("Attendance policy updated successfully.");
     } catch (err) {
-      setError(errorMessage(err));
+      setPolicyError(errorMessage(err));
     } finally {
-      setSaving(false);
+      setSavingPolicy(false);
+    }
+  }
+
+  async function handleUpdateProfile(e) {
+    e.preventDefault();
+    setSavingProfile(true);
+    setProfileNotice("");
+    setProfileError("");
+
+    try {
+      const { data } = await api.patch("/auth/profile", {
+        name: profileForm.name.trim(),
+        phone: profileForm.phone.trim(),
+        designation: profileForm.designation.trim(),
+      });
+
+      if (data.user) {
+        const updatedUser = { ...user, ...data.user };
+        const store = localStorage.getItem(TOKEN_KEY)
+          ? localStorage
+          : sessionStorage;
+        store.setItem(USER_KEY, JSON.stringify(updatedUser));
+      }
+
+      setProfileNotice("Profile updated successfully.");
+    } catch (err) {
+      setProfileError(errorMessage(err));
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
+  async function handleChangePassword(e) {
+    e.preventDefault();
+    setPasswordNotice("");
+    setPasswordError("");
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters.");
+      return;
+    }
+
+    setSavingPassword(true);
+
+    try {
+      await api.patch("/auth/change-password", {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+
+      setPasswordNotice("Password changed successfully.");
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+    } catch (err) {
+      setPasswordError(errorMessage(err));
+    } finally {
+      setSavingPassword(false);
     }
   }
 
@@ -69,15 +164,13 @@ export default function Settings() {
         <div>
           <div className="eyebrow">PREFERENCES & POLICIES</div>
           <h1>Settings</h1>
-          <p>Manage workspace attendance rules, daily capacity limits, and administrator profile.</p>
+          <p>
+            Manage workspace attendance rules, daily capacity limits, and administrator profile.
+          </p>
         </div>
       </div>
 
-      {notice && <div className="notice-banner notice-success">{notice}</div>}
-      {error && <div className="notice-banner notice-error">{error}</div>}
-
       <div className="settings-layout">
-        {/* ATTENDANCE POLICY SECTION */}
         <section className="panel settings-panel">
           <div className="panel-heading">
             <div>
@@ -89,15 +182,24 @@ export default function Settings() {
             </span>
           </div>
 
+          {policyNotice && (
+            <div className="notice-banner notice-success">{policyNotice}</div>
+          )}
+          {policyError && (
+            <div className="notice-banner notice-error">{policyError}</div>
+          )}
+
           <form onSubmit={handleSavePolicy} className="settings-fields">
             <div className="form-grid">
               <label>
                 Office Check-in Start (HH:MM)
                 <input
                   type="time"
-                  disabled={!isSuperAdmin || busy}
+                  disabled={!isSuperAdmin || busyPolicy}
                   value={policy.officeStartTime || "09:00"}
-                  onChange={(e) => setPolicy({ ...policy, officeStartTime: e.target.value })}
+                  onChange={(e) =>
+                    setPolicy({ ...policy, officeStartTime: e.target.value })
+                  }
                   required
                 />
               </label>
@@ -106,20 +208,30 @@ export default function Settings() {
                 Check-in Cutoff Time (HH:MM)
                 <input
                   type="time"
-                  disabled={!isSuperAdmin || busy}
+                  disabled={!isSuperAdmin || busyPolicy}
                   value={policy.checkInCutoffTime || "09:30"}
-                  onChange={(e) => setPolicy({ ...policy, checkInCutoffTime: e.target.value })}
+                  onChange={(e) =>
+                    setPolicy({
+                      ...policy,
+                      checkInCutoffTime: e.target.value,
+                    })
+                  }
                   required
                 />
               </label>
             </div>
 
             <label>
-              Policy for Arrivals After 9:30 AM Cutoff
+              Policy for Arrivals After Cutoff Time
               <select
-                disabled={!isSuperAdmin || busy}
+                disabled={!isSuperAdmin || busyPolicy}
                 value={policy.lateArrivalPolicy || "MARK_LATE"}
-                onChange={(e) => setPolicy({ ...policy, lateArrivalPolicy: e.target.value })}
+                onChange={(e) =>
+                  setPolicy({
+                    ...policy,
+                    lateArrivalPolicy: e.target.value,
+                  })
+                }
               >
                 <option value="MARK_LATE">Mark as LATE (Grace arrival)</option>
                 <option value="MARK_ABSENT">Mark as ABSENT</option>
@@ -134,10 +246,13 @@ export default function Settings() {
                   type="number"
                   min="1"
                   max="50"
-                  disabled={!isSuperAdmin || busy}
+                  disabled={!isSuperAdmin || busyPolicy}
                   value={policy.maxWfhPerDay ?? 5}
                   onChange={(e) =>
-                    setPolicy({ ...policy, maxWfhPerDay: parseInt(e.target.value, 10) || 5 })
+                    setPolicy({
+                      ...policy,
+                      maxWfhPerDay: parseInt(e.target.value, 10) || 5,
+                    })
                   }
                   required
                 />
@@ -149,10 +264,13 @@ export default function Settings() {
                   type="number"
                   min="5"
                   max="120"
-                  disabled={!isSuperAdmin || busy}
+                  disabled={!isSuperAdmin || busyPolicy}
                   value={policy.qrExpirySeconds ?? 18}
                   onChange={(e) =>
-                    setPolicy({ ...policy, qrExpirySeconds: parseInt(e.target.value, 10) || 18 })
+                    setPolicy({
+                      ...policy,
+                      qrExpirySeconds: parseInt(e.target.value, 10) || 18,
+                    })
                   }
                   required
                 />
@@ -169,8 +287,12 @@ export default function Settings() {
             </label>
 
             {isSuperAdmin ? (
-              <button className="button button-primary" disabled={saving || busy}>
-                <Save size={16} /> {saving ? "Saving…" : "Save attendance policy"}
+              <button
+                className="button button-primary"
+                disabled={savingPolicy || busyPolicy}
+              >
+                <Save size={16} />{" "}
+                {savingPolicy ? "Saving…" : "Save attendance policy"}
               </button>
             ) : (
               <div className="notice-banner">
@@ -180,7 +302,6 @@ export default function Settings() {
           </form>
         </section>
 
-        {/* PROFILE & SESSION SECTION */}
         <section className="panel settings-panel">
           <div className="panel-heading">
             <div>
@@ -209,32 +330,114 @@ export default function Settings() {
             </div>
           </div>
 
-          <div className="security-list" style={{ marginTop: 20 }}>
-            <div>
-              <span className="security-icon">
-                <KeyRound size={18} />
-              </span>
-              <div>
-                <b>Authenticated Session</b>
-                <p>JWT token cryptographically signed by backend.</p>
-              </div>
-              <span className="status-pill success">
-                <i /> Active
-              </span>
+          {profileNotice && (
+            <div className="notice-banner notice-success">{profileNotice}</div>
+          )}
+          {profileError && (
+            <div className="notice-banner notice-error">{profileError}</div>
+          )}
+
+          <form onSubmit={handleUpdateProfile} className="settings-fields" style={{ marginTop: 18 }}>
+            <label>
+              Display Name
+              <input
+                value={profileForm.name}
+                onChange={(e) =>
+                  setProfileForm({ ...profileForm, name: e.target.value })
+                }
+                required
+                placeholder="Full Name"
+              />
+            </label>
+
+            <div className="form-grid">
+              <label>
+                Contact Phone
+                <input
+                  value={profileForm.phone}
+                  onChange={(e) =>
+                    setProfileForm({ ...profileForm, phone: e.target.value })
+                  }
+                  placeholder="+91 9876543210"
+                />
+              </label>
+              <label>
+                Designation
+                <input
+                  value={profileForm.designation}
+                  onChange={(e) =>
+                    setProfileForm({ ...profileForm, designation: e.target.value })
+                  }
+                  placeholder="HR Lead / Operations Admin"
+                />
+              </label>
             </div>
 
-            <div>
-              <span className="security-icon">
-                <ShieldCheck size={18} />
-              </span>
-              <div>
-                <b>Role Authorization</b>
-                <p>Backend enforces permission boundaries on all APIs.</p>
+            <button className="button button-secondary" disabled={savingProfile}>
+              <Save size={15} /> {savingProfile ? "Updating…" : "Update Profile"}
+            </button>
+          </form>
+
+          <div style={{ marginTop: 24, borderTop: "1px solid #1a3c61", paddingTop: 18 }}>
+            <h3 style={{ fontSize: 15, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+              <Lock size={16} color="#38bdf8" /> Change Password
+            </h3>
+
+            {passwordNotice && (
+              <div className="notice-banner notice-success">{passwordNotice}</div>
+            )}
+            {passwordError && (
+              <div className="notice-banner notice-error">{passwordError}</div>
+            )}
+
+            <form onSubmit={handleChangePassword} className="settings-fields">
+              <label>
+                Current Password
+                <input
+                  type="password"
+                  required
+                  value={passwordForm.currentPassword}
+                  onChange={(e) =>
+                    setPasswordForm({ ...passwordForm, currentPassword: e.target.value })
+                  }
+                  placeholder="Enter current password"
+                />
+              </label>
+
+              <div className="form-grid">
+                <label>
+                  New Password
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    value={passwordForm.newPassword}
+                    onChange={(e) =>
+                      setPasswordForm({ ...passwordForm, newPassword: e.target.value })
+                    }
+                    placeholder="Min 8 characters"
+                  />
+                </label>
+
+                <label>
+                  Confirm New Password
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) =>
+                      setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })
+                    }
+                    placeholder="Re-enter new password"
+                  />
+                </label>
               </div>
-              <span className="status-pill success">
-                <i /> Enforced
-              </span>
-            </div>
+
+              <button className="button button-secondary" disabled={savingPassword}>
+                <KeyRound size={15} /> {savingPassword ? "Changing…" : "Change Password"}
+              </button>
+            </form>
           </div>
 
           <button

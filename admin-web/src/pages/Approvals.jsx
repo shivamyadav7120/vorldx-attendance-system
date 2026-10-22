@@ -32,13 +32,11 @@ export default function Approvals() {
   const [search, setSearch] = useState("");
   const [wfhAvailability, setWfhAvailability] = useState(null);
 
-  // Decision Modal
-  const [decisionModal, setDecisionModal] = useState(null); // { item, status: "APPROVED" | "REJECTED" }
+  const [decisionModal, setDecisionModal] = useState(null);
   const [comment, setComment] = useState("");
   const [deciding, setDeciding] = useState(false);
 
-  // Real Document Proof Viewer Modal
-  const [viewDocModal, setViewDocModal] = useState(null); // item with document
+  const [viewDocModal, setViewDocModal] = useState(null);
 
   const todayStr = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",
@@ -152,7 +150,6 @@ export default function Approvals() {
     [items, filter, search]
   );
 
-  // Helper to resolve full document link
   const getDocumentFullUrl = (docPath) => {
     if (!docPath) return "";
     if (docPath.startsWith("http://") || docPath.startsWith("https://")) return docPath;
@@ -179,7 +176,6 @@ export default function Approvals() {
       {notice && <div className="notice-banner notice-success">{notice}</div>}
       {error && <div className="notice-banner notice-error">{error}</div>}
 
-      {/* TODAY'S WFH QUOTA CALLOUT */}
       {wfhAvailability && (
         <div
           className="wfh-quota-banner"
@@ -253,7 +249,6 @@ export default function Approvals() {
         </div>
       )}
 
-      {/* TABS */}
       <div className="filter-tabs">
         {[
           ["PENDING", "Pending"],
@@ -430,7 +425,6 @@ export default function Approvals() {
         )}
       </section>
 
-      {/* REAL DOCUMENT VIEWER MODAL */}
       {viewDocModal && (
         <Modal
           title="Document Verification Proof"
@@ -439,7 +433,6 @@ export default function Approvals() {
           className="modal-wide"
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {/* Urgency Context Banner */}
             <div
               style={{
                 padding: "12px 16px",
@@ -465,7 +458,6 @@ export default function Approvals() {
               </div>
             </div>
 
-            {/* Document Info Card */}
             <div
               style={{
                 display: "flex",
@@ -499,7 +491,6 @@ export default function Approvals() {
               </a>
             </div>
 
-            {/* Inline Preview (If Image or PDF) */}
             <div
               style={{
                 minHeight: 280,
@@ -587,7 +578,6 @@ export default function Approvals() {
         </Modal>
       )}
 
-      {/* DECISION MODAL */}
       {decisionModal && (
         <Modal
           title={`${decisionModal.status === "APPROVED" ? "Approve" : "Reject"} Request`}
@@ -647,6 +637,15 @@ export default function Approvals() {
               />
             </label>
 
+            {error && (
+              <div
+                className="notice-banner notice-error"
+                style={{ marginBottom: 12 }}
+              >
+                {error}
+              </div>
+            )}
+
             <div className="modal-actions">
               <button
                 type="button"
@@ -656,15 +655,26 @@ export default function Approvals() {
                 Cancel
               </button>
               <button
+                type="submit"
                 className={`button ${
-                  decisionModal.status === "APPROVED" ? "button-primary" : "button-secondary"
+                  decisionModal.status === "APPROVED"
+                    ? "button-primary"
+                    : "button-secondary"
                 }`}
-                style={decisionModal.status === "REJECTED" ? { color: "#fb7185", borderColor: "#5c2033" } : {}}
+                style={
+                  decisionModal.status === "REJECTED"
+                    ? { color: "#fb7185", borderColor: "#5c2033" }
+                    : {}
+                }
                 disabled={deciding}
               >
                 {deciding
                   ? "Processing..."
-                  : `Confirm ${decisionModal.status === "APPROVED" ? "Approval" : "Rejection"}`}
+                  : `Confirm ${
+                      decisionModal.status === "APPROVED"
+                        ? "Approval"
+                        : "Rejection"
+                    }`}
               </button>
             </div>
           </form>
