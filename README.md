@@ -90,15 +90,13 @@ npx expo start
 
 ---
 
-## 🔑 Default Seed Accounts
+## Demo Setup and Security
 
-- **Super Admin**:
-  - Email: `superadmin@vorldx.com`
-  - Password: `SuperAdminPassword123!` (or value configured in `.env`)
-- **HR Admin**:
-  - Email: `vorldxadminister@gmail.com`
-  - Password: (configured in `backend/.env`)
-=======
+Configure administrator accounts and credentials through secure environment variables. Never commit real passwords, JWT secrets, MongoDB connection strings, or API keys to the repository.
+
+Before running the application, configure the required environment variables in your local environment. Use placeholder values in `.env.example` and keep actual `.env` files out of version control.
+
+For local development, follow the Backend, Admin Web Dashboard, and Employee Mobile App setup instructions above.
 # vorldx-attendance-system
 Full-stack employee attendance system (React, Node.js, Express, MongoDB): Employee App with dynamic QR check-in/out and WFH requests, HR/Admin website for policies, approvals and reports. VorldX internship project, demo data only.
 >>>>>>> b8fd731a7adeea8dd07e5d3cdfb5460c0f65e48f
