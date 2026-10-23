@@ -6,7 +6,7 @@ import { logAction } from "../services/auditService.js";
 
 const router = express.Router();
 
-// LIST EMPLOYEES
+
 router.get(
   "/employees",
   authenticate,
@@ -14,7 +14,7 @@ router.get(
   async (req, res, next) => {
     try {
       const employees = await Employee.find()
-        .select("employeeId name email department designation phone active user createdAt")
+        .select("employeeId name email department designation phone active user createdAt avatar address emergencyContact bio")
         .sort({ name: 1 })
         .lean();
 
@@ -63,7 +63,7 @@ router.get(
   }
 );
 
-// CREATE EMPLOYEE
+
 router.post(
   "/employees",
   authenticate,
@@ -96,7 +96,7 @@ router.post(
         });
       }
 
-      // Generate employeeId if omitted
+
       let assignedId = employeeId;
       if (!assignedId || typeof assignedId !== "string" || !assignedId.trim()) {
         const count = await Employee.countDocuments();
@@ -151,7 +151,7 @@ router.post(
   }
 );
 
-// EDIT EMPLOYEE
+
 router.patch(
   "/employees/:id",
   authenticate,
@@ -171,7 +171,7 @@ router.patch(
         ? await User.findById(employee.user)
         : null;
 
-      // HR Admin cannot modify Super Admin or HR Admin accounts
+
       if (
         req.user.role === "HR_ADMIN" &&
         linkedUser &&
@@ -268,7 +268,7 @@ router.patch(
   }
 );
 
-// DEACTIVATE EMPLOYEE
+
 router.patch(
   "/employees/:id/deactivate",
   authenticate,
@@ -295,7 +295,7 @@ router.patch(
         });
       }
 
-      // HR Admin cannot deactivate Super Admin or HR Admin
+
       if (
         req.user.role === "HR_ADMIN" &&
         linkedUser.role !== "EMPLOYEE"
@@ -306,7 +306,7 @@ router.patch(
         });
       }
 
-      // Prevent deactivating own account
+
       if (req.user._id.toString() === linkedUser._id.toString()) {
         return res.status(400).json({
           success: false,

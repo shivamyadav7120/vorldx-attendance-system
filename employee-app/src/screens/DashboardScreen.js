@@ -9,10 +9,13 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Image,
+  Modal,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
-import api from "../services/api";
+import api, { getFullMediaUrl } from "../services/api";
 import { colors, radii, shadows, spacing } from "../theme/tokens";
 import DarkButton from "../components/DarkButton";
 import WateryCard from "../components/WateryCard";
@@ -35,21 +38,50 @@ export default function DashboardScreen({ onNavigate }) {
   const [checkingOut, setCheckingOut] = useState(false);
   const [checkingInWfh, setCheckingInWfh] = useState(false);
 
-  // Modals
+
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerMode, setScannerMode] = useState("checkin");
   const [scanning, setScanning] = useState(false);
-  const [checkOutModalOpen, setCheckOutModalOpen] = useState(false);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
+
+  async function handleMarkAllNotificationsRead() {
+    try {
+      await api.markAllNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadNotifCount(0);
+    } catch (e) {}
+  }
+
+  async function handleNotificationClick(item) {
+    if (!item.isRead) {
+      try {
+        await api.markNotificationRead(item._id);
+        setNotifications((prev) =>
+          prev.map((n) => (n._id === item._id ? { ...n, isRead: true } : n))
+        );
+        setUnreadNotifCount((prev) => Math.max(0, prev - 1));
+      } catch (e) {}
+    }
+  }
 
   async function loadDashboardData() {
     try {
-      const [todayRes, historyRes] = await Promise.all([
+      const [todayRes, historyRes, notifRes] = await Promise.all([
         api.getTodayAttendance().catch(() => null),
         api.getMyAttendance().catch(() => null),
+        api.getNotifications().catch(() => null),
       ]);
 
       if (todayRes) {
         setTodayData(todayRes);
+      }
+
+      if (notifRes?.notifications) {
+        setNotifications(notifRes.notifications);
+        setUnreadNotifCount(notifRes.unreadCount || 0);
       }
 
       if (historyRes?.records) {
@@ -91,11 +123,22 @@ export default function DashboardScreen({ onNavigate }) {
     } catch {}
 
     try {
-      const res = await api.checkInOffice(token);
-      setScannerOpen(false);
-      setScanning(false);
-      Alert.alert("Check-In Successful", res.message || "Office check-in recorded successfully!");
-      loadDashboardData();
+      if (scannerMode === "checkout") {
+        const res = await api.checkOut({ qrToken: token });
+        setScannerOpen(false);
+        setScanning(false);
+        Alert.alert(
+          "Check-Out Successful",
+          res.message || "Office check-out verified via screen QR scan successfully! Have a great evening."
+        );
+        loadDashboardData();
+      } else {
+        const res = await api.checkInOffice(token);
+        setScannerOpen(false);
+        setScanning(false);
+        Alert.alert("Check-In Successful", res.message || "Office check-in recorded successfully!");
+        loadDashboardData();
+      }
     } catch (err) {
       const isNetwork =
         err.isNetworkError ||
@@ -210,9 +253,12 @@ export default function DashboardScreen({ onNavigate }) {
           />
         }
       >
-        {/* Header Greeting */}
         <View style={styles.headerRow}>
-          <View style={styles.headerInfo}>
+          <TouchableOpacity
+            style={styles.headerInfo}
+            onPress={() => onNavigate("profile")}
+            activeOpacity={0.8}
+          >
             <View style={styles.companyBadge}>
               <Text style={styles.companyBadgeText}>VORLDX INDUSTRIES</Text>
             </View>
@@ -223,15 +269,41 @@ export default function DashboardScreen({ onNavigate }) {
               {employee?.employeeId ? `${employee.employeeId} · ` : ""}
               {employee?.designation || employee?.department || "Team Member"}
             </Text>
-          </View>
+          </TouchableOpacity>
 
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={styles.iconCircleBtn}
+              onPress={() => setNotificationsModalOpen(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="notifications-outline" size={21} color={colors.textPrimary} />
+              {unreadNotifCount > 0 && (
+                <View style={styles.notifBadge}>
+                  <Text style={styles.notifBadgeText}>
+                    {unreadNotifCount > 9 ? "9+" : unreadNotifCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.iconCircleBtn,
+                Boolean(employee?.avatar || user?.avatar) && { padding: 0, overflow: "hidden", borderColor: "#00f0ff" }
+              ]}
               onPress={() => onNavigate("profile")}
               activeOpacity={0.8}
             >
-              <Ionicons name="person-circle-outline" size={26} color={colors.textPrimary} />
+              {employee?.avatar || user?.avatar ? (
+                <Image
+                  source={{ uri: getFullMediaUrl(employee?.avatar || user?.avatar) }}
+                  style={{ width: "100%", height: "100%", borderRadius: 19 }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Ionicons name="person-circle-outline" size={26} color={colors.textPrimary} />
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -244,10 +316,43 @@ export default function DashboardScreen({ onNavigate }) {
           </View>
         </View>
 
-        {/* Live IST Shift Clock and Working Timer */}
+        {notifications.length > 0 && (
+          <TouchableOpacity
+            style={styles.notifBannerCard}
+            onPress={() => setNotificationsModalOpen(true)}
+            activeOpacity={0.85}
+          >
+            <View style={styles.notifBannerIconBox}>
+              <Ionicons
+                name={notifications[0].priority === "URGENT" ? "alert-circle" : "megaphone"}
+                size={20}
+                color="#00f0ff"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={styles.notifBannerTag}>
+                  {notifications[0].priority === "URGENT" ? "🚨 URGENT NOTICE" : "📢 MANAGEMENT BROADCAST"}
+                </Text>
+                {!notifications[0].isRead && (
+                  <View style={styles.newNotifDot} />
+                )}
+              </View>
+              <Text style={styles.notifBannerTitle} numberOfLines={1}>
+                {notifications[0].title}
+              </Text>
+              <Text style={styles.notifBannerBody} numberOfLines={2}>
+                {notifications[0].message}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#38bdf8" />
+          </TouchableOpacity>
+        )}
+
+        {}
         <LiveShiftClock todayAttendance={att} />
 
-        {/* Main Attendance Card */}
+        {}
         <WateryCard style={styles.attendanceCard} elevated>
           <View style={styles.attendanceHeader}>
             <View>
@@ -275,7 +380,7 @@ export default function DashboardScreen({ onNavigate }) {
             <ActivityIndicator color={colors.primary} style={{ marginVertical: 24 }} />
           ) : (
             <View style={styles.attendanceContent}>
-              {/* Check-In & Check-Out Time Stamps */}
+              {}
               <View style={styles.timeGrid}>
                 <View style={styles.timeTile}>
                   <View style={styles.timeTileHeader}>
@@ -318,19 +423,21 @@ export default function DashboardScreen({ onNavigate }) {
                 </View>
               </View>
 
-              {/* Action Buttons with High-Contrast Dark Buttons */}
+              {}
               <View style={styles.actionContainer}>
                 {!isCheckedIn ? (
                   <View style={styles.checkInButtonStack}>
-                    {/* Primary Dark Button: Scan Office QR */}
+                    {}
                     <DarkButton
                       title="Scan Office QR to Check In"
-                      onPress={() => setScannerOpen(true)}
+                      onPress={() => {
+                        setScannerMode("checkin");
+                        setScannerOpen(true);
+                      }}
                       icon={<Ionicons name="qr-code-outline" size={19} color="#FFFFFF" />}
                       style={styles.primaryActionButton}
                     />
 
-                    {/* Secondary Watery Button: WFH Check-in */}
                     <DarkButton
                       title="Check In Remotely (WFH)"
                       variant="secondary"
@@ -342,10 +449,12 @@ export default function DashboardScreen({ onNavigate }) {
                   </View>
                 ) : !isCheckedOut ? (
                   <DarkButton
-                    title="Check Out For Today"
-                    onPress={() => setCheckOutModalOpen(true)}
-                    loading={checkingOut}
-                    icon={<Ionicons name="log-out-outline" size={19} color="#FFFFFF" />}
+                    title="Scan Screen QR to Check Out"
+                    onPress={() => {
+                      setScannerMode("checkout");
+                      setScannerOpen(true);
+                    }}
+                    icon={<Ionicons name="qr-code-outline" size={19} color="#FFFFFF" />}
                     style={styles.primaryActionButton}
                   />
                 ) : (
@@ -361,7 +470,7 @@ export default function DashboardScreen({ onNavigate }) {
           )}
         </WateryCard>
 
-        {/* Monthly Summary Metric Strip */}
+        {}
         <Text style={styles.sectionTitle}>THIS MONTH'S SUMMARY</Text>
         <View style={styles.metricGrid}>
           <WateryCard style={styles.metricTile}>
@@ -391,7 +500,7 @@ export default function DashboardScreen({ onNavigate }) {
           </WateryCard>
         </View>
 
-        {/* Quick Workspace Navigation Services */}
+        {}
         <Text style={styles.sectionTitle}>WORKSPACE SERVICES</Text>
         <View style={styles.servicesGrid}>
           <TouchableOpacity
@@ -444,28 +553,20 @@ export default function DashboardScreen({ onNavigate }) {
         </View>
       </ScrollView>
 
-      {/* Office QR Camera Scanner Modal */}
       <ScannerModal
         visible={scannerOpen}
         onClose={() => setScannerOpen(false)}
         onScan={handleScanQr}
         scanning={scanning}
+        title={scannerMode === "checkout" ? "Check-Out QR Scanner" : "Office QR Scanner"}
+        subtitle={
+          scannerMode === "checkout"
+            ? "Scan the live screen QR code to verify check-out"
+            : "Hold steady to verify check-in"
+        }
       />
 
-      {/* Confirmation Modal for Check-Out */}
-      <ConfirmationModal
-        visible={checkOutModalOpen}
-        title="Check Out For Today?"
-        message="Your daily shift duration will be recorded. Make sure you have finished all tasks before checking out."
-        confirmLabel="Confirm Check-Out"
-        cancelLabel="Keep Working"
-        loading={checkingOut}
-        onConfirm={executeCheckOut}
-        onCancel={() => setCheckOutModalOpen(false)}
-        icon="time-outline"
-      />
-
-      {/* Confirmation Modal for Sign Out */}
+      {}
       <ConfirmationModal
         visible={logoutModalOpen}
         title="Sign Out of VorldX?"
@@ -479,6 +580,127 @@ export default function DashboardScreen({ onNavigate }) {
         onCancel={() => setLogoutModalOpen(false)}
         icon="log-out-outline"
       />
+
+      <Modal
+        visible={notificationsModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setNotificationsModalOpen(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setNotificationsModalOpen(false)}>
+          <View style={styles.notifModalBackdrop}>
+            <TouchableWithoutFeedback>
+              <View style={styles.notifModalDialog}>
+                <View style={styles.notifModalHeader}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    <View style={styles.notifIconCircle}>
+                      <Ionicons name="notifications" size={20} color="#00f0ff" />
+                    </View>
+                    <View>
+                      <Text style={styles.notifModalTitle}>Notifications & Alerts</Text>
+                      <Text style={styles.notifModalSub}>Management & HR Broadcasts</Text>
+                    </View>
+                  </View>
+
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    {unreadNotifCount > 0 && (
+                      <TouchableOpacity
+                        onPress={handleMarkAllNotificationsRead}
+                        style={styles.markAllReadBtn}
+                      >
+                        <Text style={styles.markAllReadText}>Mark all read</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      onPress={() => setNotificationsModalOpen(false)}
+                      style={styles.closeNotifBtn}
+                    >
+                      <Ionicons name="close" size={20} color="#cbd5e1" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <ScrollView style={styles.notifListScroll} contentContainerStyle={{ paddingBottom: 16 }}>
+                  {notifications.length === 0 ? (
+                    <View style={styles.emptyNotifBox}>
+                      <Ionicons name="mail-open-outline" size={44} color="#475569" />
+                      <Text style={styles.emptyNotifTitle}>No Notifications</Text>
+                      <Text style={styles.emptyNotifDesc}>
+                        Announcements and messages from management will appear here.
+                      </Text>
+                    </View>
+                  ) : (
+                    notifications.map((item) => (
+                      <TouchableOpacity
+                        key={item._id || item.id}
+                        style={[
+                          styles.notifCard,
+                          !item.isRead && styles.notifCardUnread,
+                          item.priority === "URGENT" && styles.notifCardUrgent,
+                        ]}
+                        onPress={() => handleNotificationClick(item)}
+                        activeOpacity={0.8}
+                      >
+                        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+                          <View
+                            style={[
+                              styles.notifCardIcon,
+                              item.priority === "URGENT"
+                                ? { backgroundColor: "rgba(239, 68, 68, 0.15)", borderColor: "#ef4444" }
+                                : { backgroundColor: "rgba(2, 132, 199, 0.15)", borderColor: "#0284c7" },
+                            ]}
+                          >
+                            <Ionicons
+                              name={
+                                item.priority === "URGENT"
+                                  ? "alert-circle"
+                                  : item.type === "DIRECT_MESSAGE"
+                                  ? "chatbubble-ellipses"
+                                  : "megaphone"
+                              }
+                              size={18}
+                              color={item.priority === "URGENT" ? "#f43f5e" : "#00f0ff"}
+                            />
+                          </View>
+
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                              <Text style={styles.notifSenderText}>
+                                {item.senderName || (item.senderRole === "SUPER_ADMIN" ? "Super Admin" : "HR Admin")}
+                              </Text>
+                              <Text style={styles.notifTimeText}>
+                                {new Date(item.createdAt).toLocaleDateString([], { month: "short", day: "numeric" })} · {new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </Text>
+                            </View>
+
+                            <Text style={styles.notifItemTitle}>{item.title}</Text>
+                            <Text style={styles.notifItemBody}>{item.message}</Text>
+
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 }}>
+                              {item.priority === "URGENT" && (
+                                <View style={styles.urgentPriorityTag}>
+                                  <Text style={styles.urgentPriorityTagText}>URGENT</Text>
+                                </View>
+                              )}
+                              <View style={styles.audienceTag}>
+                                <Text style={styles.audienceTagText}>
+                                  {item.targetAudience === "ALL" ? "All Staff" : item.targetAudience === "HR" ? "HR Staff" : item.targetDepartment || "Notice"}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+
+                          {!item.isRead && <View style={styles.unreadDot} />}
+                        </View>
+                      </TouchableOpacity>
+                    ))
+                  )}
+                </ScrollView>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }
@@ -704,5 +926,223 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  notifBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    minWidth: 17,
+    height: 17,
+    borderRadius: 9,
+    backgroundColor: "#ef4444",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: "#040915",
+  },
+  notifBadgeText: {
+    color: "#ffffff",
+    fontSize: 9,
+    fontWeight: "900",
+  },
+  notifBannerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: "rgba(2, 132, 199, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 240, 255, 0.3)",
+    marginBottom: spacing.md,
+  },
+  notifBannerIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(0, 240, 255, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notifBannerTag: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#00f0ff",
+    letterSpacing: 0.5,
+  },
+  newNotifDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#f43f5e",
+  },
+  notifBannerTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#f8fafc",
+    marginTop: 2,
+  },
+  notifBannerBody: {
+    fontSize: 11,
+    color: "#94a3b8",
+    marginTop: 2,
+  },
+  notifModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(4, 9, 21, 0.8)",
+    justifyContent: "flex-end",
+  },
+  notifModalDialog: {
+    maxHeight: "85%",
+    backgroundColor: "#081326",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(0, 240, 255, 0.25)",
+  },
+  notifModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1e3357",
+  },
+  notifIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(0, 240, 255, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notifModalTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#f8fafc",
+  },
+  notifModalSub: {
+    fontSize: 11,
+    color: "#94a3b8",
+  },
+  markAllReadBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: "#0d1b33",
+    borderWidth: 1,
+    borderColor: "#1e3357",
+  },
+  markAllReadText: {
+    fontSize: 10.5,
+    fontWeight: "700",
+    color: "#38bdf8",
+  },
+  closeNotifBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#0d1b33",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notifListScroll: {
+    maxHeight: 460,
+  },
+  emptyNotifBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+  },
+  emptyNotifTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#cbd5e1",
+    marginTop: 10,
+  },
+  emptyNotifDesc: {
+    fontSize: 12,
+    color: "#64748b",
+    textAlign: "center",
+    maxWidth: 240,
+    marginTop: 4,
+  },
+  notifCard: {
+    padding: 12,
+    backgroundColor: "#0d1b33",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#1e3357",
+    marginBottom: 10,
+  },
+  notifCardUnread: {
+    borderColor: "rgba(0, 240, 255, 0.4)",
+    backgroundColor: "rgba(2, 132, 199, 0.1)",
+  },
+  notifCardUrgent: {
+    borderColor: "rgba(239, 68, 68, 0.4)",
+  },
+  notifCardIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  notifSenderText: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: "#38bdf8",
+  },
+  notifTimeText: {
+    fontSize: 10,
+    color: "#64748b",
+  },
+  notifItemTitle: {
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: "#f8fafc",
+    marginTop: 3,
+  },
+  notifItemBody: {
+    fontSize: 11.5,
+    color: "#cbd5e1",
+    marginTop: 3,
+    lineHeight: 16,
+  },
+  urgentPriorityTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: "rgba(239, 68, 68, 0.2)",
+    borderWidth: 1,
+    borderColor: "#ef4444",
+  },
+  urgentPriorityTagText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#f87171",
+  },
+  audienceTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: "#162544",
+  },
+  audienceTagText: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: "#94a3b8",
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#00f0ff",
+    marginTop: 4,
   },
 });

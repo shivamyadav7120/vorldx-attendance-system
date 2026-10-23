@@ -11,13 +11,16 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure uploads/documents directory exists
 const uploadsDir = path.join(__dirname, "uploads", "documents");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
+const avatarsDir = path.join(__dirname, "uploads", "avatars");
+if (!fs.existsSync(avatarsDir)) {
+  fs.mkdirSync(avatarsDir, { recursive: true });
+}
 
-// Modular Routes
+
 import authRoutes from "./routes/authRoutes.js";
 import hrRoutes from "./routes/hrRoutes.js";
 import employeeRoutes from "./routes/employeeRoutes.js";
@@ -29,13 +32,14 @@ import policyRoutes from "./routes/policyRoutes.js";
 import auditRoutes from "./routes/auditRoutes.js";
 import organizationRoutes from "./routes/organizationRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 
-// ==================================================
-// SECURITY & MIDDLEWARE
-// ==================================================
+
+
+
 
 app.disable("x-powered-by");
 app.use(
@@ -56,7 +60,7 @@ const allowedOrigins = [
 app.use(
   cors({
     origin(origin, callback) {
-      // Allow requests with no origin (mobile apps, curl, postman) or matching whitelist
+
       if (
         !origin ||
         process.env.NODE_ENV === "development" ||
@@ -79,7 +83,7 @@ app.use(
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 
-// Static uploads serving for uploaded verification documents
+
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use(
@@ -92,9 +96,9 @@ app.use(
   })
 );
 
-// ==================================================
-// HEALTH CHECK
-// ==================================================
+
+
+
 
 app.get("/api/health", (req, res) => {
   res.json({
@@ -108,9 +112,9 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// ==================================================
-// MOUNT MODULAR API ROUTES
-// ==================================================
+
+
+
 
 app.use("/api", authRoutes);
 app.use("/api", hrRoutes);
@@ -123,10 +127,11 @@ app.use("/api", policyRoutes);
 app.use("/api", auditRoutes);
 app.use("/api", organizationRoutes);
 app.use("/api", reportRoutes);
+app.use("/api", notificationRoutes);
 
-// ==================================================
-// 404 HANDLER
-// ==================================================
+
+
+
 
 app.use((req, res) => {
   res.status(404).json({
@@ -135,9 +140,9 @@ app.use((req, res) => {
   });
 });
 
-// ==================================================
-// CENTRALIZED ERROR HANDLER
-// ==================================================
+
+
+
 
 app.use((error, req, res, next) => {
   if (res.headersSent) {
@@ -176,9 +181,9 @@ app.use((error, req, res, next) => {
   });
 });
 
-// ==================================================
-// SERVER INITIALIZATION
-// ==================================================
+
+
+
 
 export async function startServer() {
   try {
@@ -213,7 +218,7 @@ export async function startServer() {
   }
 }
 
-// Start server when run directly
+
 if (process.argv[1]?.endsWith("server.js")) {
   startServer().catch(() => process.exit(1));
 }

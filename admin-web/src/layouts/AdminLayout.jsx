@@ -23,14 +23,25 @@ import {
   ChevronDown,
   ShieldCheck,
   ShieldAlert,
+  MessageSquare,
+  Sparkles,
 } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
 import Brand from "../components/Brand";
+import AdminProfileMenu from "../components/AdminProfileMenu";
+import BroadcastCenterModal from "../components/BroadcastCenterModal";
+import NotificationsMenu from "../components/NotificationsMenu";
+import QuickEditProfileModal from "../components/QuickEditProfileModal";
 
 export default function AdminLayout() {
-  const { user, logout, isSuperAdmin } = useAuth();
+  const { user, logout, updateUser, isSuperAdmin } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [messagesOpen, setMessagesOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [quickEditOpen, setQuickEditOpen] = useState(false);
+
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -186,31 +197,106 @@ export default function AdminLayout() {
               />
             </div>
 
-            <button
-              className="icon-button notification-button"
-              title="Notifications"
-              aria-label="Notifications"
-            >
-              <Bell size={18} />
-              <i />
-            </button>
+            <div className="topbar-action-item">
+              <button
+                type="button"
+                className={`icon-button message-button ${messagesOpen ? "active" : ""}`}
+                title="Communications & Broadcasts"
+                aria-label="Open messages & broadcast center"
+                onClick={() => {
+                  setMessagesOpen(true);
+                  setNotificationsOpen(false);
+                  setProfileOpen(false);
+                }}
+              >
+                <MessageSquare size={18} />
+                <span className="topbar-badge topbar-badge-cyan">2</span>
+              </button>
+            </div>
 
-            <div className="user-chip">
-              <div className="avatar avatar-small">{initials}</div>
-              <div className="user-chip-text">
-                <b>{name}</b>
-                <span
-                  className={`user-chip-role ${
-                    isSuperAdmin ? "super-admin" : "hr-admin"
-                  }`}
-                >
-                  {isSuperAdmin ? "SUPER ADMIN" : "HR ADMIN"}
-                </span>
-              </div>
-              <ChevronDown size={14} style={{ color: "var(--text-muted)" }} />
+            <div className="topbar-action-item">
+              <button
+                type="button"
+                className={`icon-button notification-button ${notificationsOpen ? "active" : ""}`}
+                title="Notifications"
+                aria-label="Open notifications menu"
+                onClick={() => {
+                  setNotificationsOpen(!notificationsOpen);
+                  setProfileOpen(false);
+                }}
+              >
+                <Bell size={18} />
+                <i className="notif-ping-dot" />
+              </button>
+
+              <NotificationsMenu
+                isOpen={notificationsOpen}
+                onClose={() => setNotificationsOpen(false)}
+              />
+            </div>
+
+            <div className="topbar-action-item">
+              <button
+                type="button"
+                className={`user-chip user-chip-btn ${profileOpen ? "active" : ""}`}
+                onClick={() => {
+                  setProfileOpen(!profileOpen);
+                  setNotificationsOpen(false);
+                }}
+                aria-expanded={profileOpen}
+                aria-haspopup="true"
+                title="Admin Profile & Quick Settings"
+              >
+                <div className="avatar avatar-small avatar-water-ring" style={{ overflow: "hidden" }}>
+                  {user?.avatar ? (
+                    <img
+                      src={user.avatar.startsWith("http") ? user.avatar : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api\/?$/, "")}${user.avatar.startsWith("/") ? user.avatar : `/${user.avatar}`}`}
+                      alt=""
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    initials
+                  )}
+                </div>
+                <div className="user-chip-text">
+                  <b>{name}</b>
+                  <span
+                    className={`user-chip-role ${
+                      isSuperAdmin ? "super-admin" : "hr-admin"
+                    }`}
+                  >
+                    {isSuperAdmin ? "SUPER ADMIN" : "HR ADMIN"}
+                  </span>
+                </div>
+                <ChevronDown
+                  size={14}
+                  className={`user-chip-chevron ${profileOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              <AdminProfileMenu
+                isOpen={profileOpen}
+                onClose={() => setProfileOpen(false)}
+                user={user}
+                isSuperAdmin={isSuperAdmin}
+                onOpenQuickEdit={() => setQuickEditOpen(true)}
+                onSignOut={signOut}
+              />
             </div>
           </div>
         </header>
+
+        <BroadcastCenterModal
+          isOpen={messagesOpen}
+          onClose={() => setMessagesOpen(false)}
+        />
+
+        <QuickEditProfileModal
+          isOpen={quickEditOpen}
+          onClose={() => setQuickEditOpen(false)}
+          user={user}
+          onUserUpdated={(updated) => updateUser(updated)}
+        />
 
         <div className="page-content">
           <Outlet />

@@ -2,11 +2,51 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
+import path from "path";
+import fs from "fs";
 import { User, Employee } from "../models/index.js";
 import { authenticate } from "../middleware/auth.js";
 import { logAction } from "../services/auditService.js";
 
 const router = express.Router();
+
+function saveAvatarBase64(avatarData, identifier = "user") {
+  if (!avatarData || typeof avatarData !== "string") return null;
+
+  try {
+    const matches = avatarData.match(/^data:([A-Za-z0-9-+/]+);base64,(.+)$/);
+    let buffer;
+    let ext = "jpg";
+
+    if (matches && matches.length === 3) {
+      const mime = matches[1];
+      buffer = Buffer.from(matches[2], "base64");
+      if (mime.includes("png")) ext = "png";
+      else if (mime.includes("webp")) ext = "webp";
+      else ext = "jpg";
+    } else if (avatarData.length > 500) {
+      buffer = Buffer.from(avatarData, "base64");
+    } else {
+      return avatarData;
+    }
+
+    const safeId = String(identifier || "emp").replace(/[^a-z0-9]/gi, "_").toLowerCase();
+    const fileName = `avatar_${safeId}_${Date.now()}.${ext}`;
+    const targetDir = path.join(process.cwd(), "uploads", "avatars");
+
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    const filePath = path.join(targetDir, fileName);
+    fs.writeFileSync(filePath, buffer);
+
+    return `/uploads/avatars/${fileName}`;
+  } catch (err) {
+    console.error("Failed to save avatar image:", err);
+    return null;
+  }
+}
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -16,7 +56,7 @@ const authLimiter = rateLimit({
   message: { success: false, message: "Too many login attempts. Please try again later." },
 });
 
-// Helper to create an account with User + Employee profile
+
 export const createAccount = async ({
   name,
   email,
@@ -80,9 +120,9 @@ export const createAccount = async ({
   }
 };
 
-// ==========================================
-// FIRST SUPER ADMIN SETUP
-// ==========================================
+
+
+
 router.post("/setup/first-admin", authLimiter, async (req, res, next) => {
   try {
     const setupKey = req.headers["x-setup-key"];
@@ -152,9 +192,9 @@ router.post("/setup/first-admin", authLimiter, async (req, res, next) => {
   }
 });
 
-// ==========================================
-// LOGIN
-// ==========================================
+
+
+
 router.post("/auth/login", authLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body || {};
@@ -227,9 +267,9 @@ router.post("/auth/login", authLimiter, async (req, res, next) => {
   }
 });
 
-// ==========================================
-// CURRENT USER PROFILE
-// ==========================================
+
+
+
 router.get("/auth/me", authenticate, async (req, res, next) => {
   try {
     const employee = await Employee.findOne({
@@ -271,9 +311,90 @@ router.get("/auth/me", authenticate, async (req, res, next) => {
   }
 });
 
-// ==========================================
-// MANAGE PROFILE (EMPLOYEE / USER)
-// ==========================================
+
+
+
+router.post("/auth/avatar", authenticate, async (req, res, next) => {
+  try {
+    const { avatarData } = req.body || {};
+    if (!avatarData || typeof avatarData !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "No photo data provided",
+      });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    let employee = await Employee.findOne({ user: user._id });
+    const identifier = employee?.employeeId || user._id;
+    const avatarUrl = saveAvatarBase64(avatarData, identifier);
+
+    if (!avatarUrl) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to save profile photo",
+      });
+    }
+
+    user.avatar = avatarUrl;
+    await user.save();
+
+    if (employee) {
+      employee.avatar = avatarUrl;
+      await employee.save();
+    }
+
+    await logAction({
+      actor: user,
+      action: "AVATAR_UPDATED",
+      targetType: "User",
+      targetId: user._id,
+      details: { avatarUrl },
+      ipAddress: req.ip,
+    });
+
+    return res.json({
+      success: true,
+      message: "Profile photo updated successfully",
+      avatarUrl,
+      user: {
+        id: user._id,
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        active: user.active,
+        avatar: avatarUrl,
+        employeeId: employee?.employeeId || null,
+        department: employee?.department || null,
+      },
+      employee: employee
+        ? {
+            id: employee._id,
+            _id: employee._id,
+            employeeId: employee.employeeId,
+            name: employee.name,
+            email: employee.email,
+            department: employee.department,
+            designation: employee.designation,
+            phone: employee.phone,
+            address: employee.address || "",
+            emergencyContact: employee.emergencyContact || "",
+            bio: employee.bio || "",
+            avatar: avatarUrl,
+            active: employee.active,
+          }
+        : null,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.patch("/auth/profile", authenticate, async (req, res, next) => {
   try {
     const {
@@ -292,12 +413,23 @@ router.patch("/auth/profile", authenticate, async (req, res, next) => {
     }
 
     let employee = await Employee.findOne({ user: user._id });
+    const identifier = employee?.employeeId || user._id;
 
-    // Update User name if provided
     if (typeof name === "string" && name.trim()) {
       user.name = name.trim().slice(0, 100);
-      await user.save();
     }
+
+    let resolvedAvatar = null;
+    if (typeof avatar === "string" && avatar.trim()) {
+      if (avatar.startsWith("data:") || avatar.length > 500) {
+        resolvedAvatar = saveAvatarBase64(avatar, identifier) || employee?.avatar || "";
+      } else {
+        resolvedAvatar = avatar.trim();
+      }
+      user.avatar = resolvedAvatar;
+    }
+
+    await user.save();
 
     if (employee) {
       if (typeof name === "string" && name.trim()) employee.name = name.trim().slice(0, 100);
@@ -306,7 +438,7 @@ router.patch("/auth/profile", authenticate, async (req, res, next) => {
       if (typeof address === "string") employee.address = address.trim().slice(0, 300);
       if (typeof emergencyContact === "string") employee.emergencyContact = emergencyContact.trim().slice(0, 100);
       if (typeof bio === "string") employee.bio = bio.trim().slice(0, 500);
-      if (typeof avatar === "string") employee.avatar = avatar.trim();
+      if (resolvedAvatar !== null) employee.avatar = resolvedAvatar;
       await employee.save();
     }
 
@@ -315,7 +447,7 @@ router.patch("/auth/profile", authenticate, async (req, res, next) => {
       action: "PROFILE_UPDATED",
       targetType: "User",
       targetId: user._id,
-      details: { name: user.name, phone: employee?.phone },
+      details: { name: user.name, phone: employee?.phone, avatar: employee?.avatar },
       ipAddress: req.ip,
     });
 
@@ -329,6 +461,7 @@ router.patch("/auth/profile", authenticate, async (req, res, next) => {
         email: user.email,
         role: user.role,
         active: user.active,
+        avatar: employee?.avatar || user.avatar || "",
         employeeId: employee?.employeeId || null,
         department: employee?.department || null,
       },
@@ -355,9 +488,6 @@ router.patch("/auth/profile", authenticate, async (req, res, next) => {
   }
 });
 
-// ==========================================
-// CHANGE PASSWORD
-// ==========================================
 router.patch("/auth/change-password", authenticate, async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body || {};

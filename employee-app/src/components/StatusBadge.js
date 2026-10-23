@@ -6,7 +6,15 @@ export default function StatusBadge({ status, label, style, size = "md" }) {
   const norm = String(status || "").toUpperCase();
   let conf = colors.status.pending;
 
-  if (norm.includes("PRESENT") || norm === "APPROVED") {
+  if (norm === "HR_APPROVED") {
+    conf = {
+      bg: "#E0F2FE",
+      border: "#7DD3FC",
+      text: "#0369A1",
+      dot: "#0284C7",
+      label: "HR APPROVED",
+    };
+  } else if (norm.includes("PRESENT") || norm === "APPROVED") {
     conf = colors.status.present;
   } else if (norm.includes("LATE")) {
     conf = colors.status.late;
@@ -21,6 +29,9 @@ export default function StatusBadge({ status, label, style, size = "md" }) {
   }
 
   const isSmall = size === "sm";
+  const displayLabel =
+    label ||
+    (norm === "HR_APPROVED" ? "HR Approved (Pending Admin)" : norm || conf.label);
 
   return (
     <View
@@ -45,7 +56,7 @@ export default function StatusBadge({ status, label, style, size = "md" }) {
           },
         ]}
       >
-        {label || norm || conf.label}
+        {displayLabel}
       </Text>
     </View>
   );

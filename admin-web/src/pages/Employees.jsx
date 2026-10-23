@@ -9,6 +9,16 @@ import {
   UserX,
   UserCheck,
   Filter,
+  Eye,
+  Camera,
+  ExternalLink,
+  Mail,
+  Phone,
+  MapPin,
+  Building,
+  Calendar,
+  Shield,
+  FileText,
 } from "lucide-react";
 import api, { errorMessage } from "../services/api";
 import Modal from "../components/Modal";
@@ -17,6 +27,14 @@ import EmptyState from "../components/EmptyState";
 
 const arr = (d) =>
   Array.isArray(d) ? d : d?.employees || d?.data || d?.items || [];
+
+const getMediaUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
+  const base = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+  const host = base.replace(/\/api\/?$/, "");
+  return `${host}${url.startsWith("/") ? url : `/${url}`}`;
+};
 
 const initial = {
   name: "",
@@ -43,6 +61,7 @@ export default function Employees() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
+  const [viewEmployeeModal, setViewEmployeeModal] = useState(null);
 
   async function load() {
     setBusy(true);
@@ -335,17 +354,37 @@ export default function Employees() {
                   return (
                     <tr key={x._id || x.id || i}>
                       <td>
-                        <div className="person-cell">
-                          <div className="avatar avatar-small">
-                            {String(x.name || x.fullName || "?")
-                              .split(" ")
-                              .map((w) => w[0])
-                              .slice(0, 2)
-                              .join("")
-                              .toUpperCase()}
+                        <div
+                          className="person-cell"
+                          style={{ cursor: "pointer" }}
+                          onClick={() => setViewEmployeeModal(x)}
+                          title="Click to view full employee profile and photo"
+                        >
+                          <div
+                            className="avatar avatar-small"
+                            style={{
+                              overflow: "hidden",
+                              boxShadow: x.avatar ? "0 0 10px rgba(0, 240, 255, 0.3)" : "none",
+                              border: x.avatar ? "1.5px solid #00f0ff" : "none",
+                            }}
+                          >
+                            {x.avatar ? (
+                              <img
+                                src={getMediaUrl(x.avatar)}
+                                alt={x.name || "Employee"}
+                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                              />
+                            ) : (
+                              String(x.name || x.fullName || "?")
+                                .split(" ")
+                                .map((w) => w[0])
+                                .slice(0, 2)
+                                .join("")
+                                .toUpperCase()
+                            )}
                           </div>
                           <div>
-                            <b>{x.name || x.fullName || "—"}</b>
+                            <b style={{ color: "#f8fafc" }}>{x.name || x.fullName || "—"}</b>
                             <small>{x.email || "—"}</small>
                           </div>
                         </div>
@@ -359,6 +398,13 @@ export default function Employees() {
                       </td>
                       <td>
                         <div className="row-actions">
+                          <button
+                            className="icon-button"
+                            title="View employee profile & photo"
+                            onClick={() => setViewEmployeeModal(x)}
+                          >
+                            <Eye size={16} />
+                          </button>
                           <button
                             className="icon-button"
                             title="Edit employee"
@@ -411,6 +457,38 @@ export default function Employees() {
           onClose={() => setModal(false)}
         >
           <form className="modal-form" onSubmit={save}>
+            {editing && editing.avatar && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "#0a1222",
+                  border: "1px solid rgba(0, 240, 255, 0.25)",
+                  marginBottom: 12,
+                }}
+              >
+                <img
+                  src={getMediaUrl(editing.avatar)}
+                  alt={editing.name || "Employee"}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    objectFit: "cover",
+                    border: "1.5px solid #00f0ff",
+                  }}
+                />
+                <div>
+                  <b style={{ color: "#f8fafc", fontSize: 13 }}>Current Profile Photo</b>
+                  <p style={{ color: "#64748b", fontSize: 11, margin: 0 }}>
+                    Uploaded by employee via mobile app
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="form-grid">
               <label>
                 Full name
@@ -511,6 +589,187 @@ export default function Employees() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+      {viewEmployeeModal && (
+        <Modal
+          title="Employee Profile & Verification"
+          subtitle={`Detailed records for ${viewEmployeeModal.name || "Employee"}`}
+          onClose={() => setViewEmployeeModal(null)}
+          className="modal-wide"
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 18,
+                padding: "18px 22px",
+                borderRadius: 14,
+                background: "linear-gradient(135deg, rgba(2, 132, 199, 0.15) 0%, rgba(4, 9, 21, 0.7) 100%)",
+                border: "1px solid rgba(0, 240, 255, 0.3)",
+                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+              }}
+            >
+              <div
+                style={{
+                  width: 84,
+                  height: 84,
+                  borderRadius: 42,
+                  background: "#081326",
+                  border: "2.5px solid #00f0ff",
+                  boxShadow: "0 0 20px rgba(0, 240, 255, 0.35)",
+                  overflow: "hidden",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {viewEmployeeModal.avatar ? (
+                  <img
+                    src={getMediaUrl(viewEmployeeModal.avatar)}
+                    alt={viewEmployeeModal.name || "Employee"}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 28, fontWeight: 900, color: "#ffffff" }}>
+                    {String(viewEmployeeModal.name || "?")
+                      .split(" ")
+                      .map((w) => w[0])
+                      .slice(0, 2)
+                      .join("")
+                      .toUpperCase()}
+                  </span>
+                )}
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <h2 style={{ fontSize: 20, fontWeight: 800, color: "#f8fafc", margin: 0 }}>
+                    {viewEmployeeModal.name || "Employee"}
+                  </h2>
+                  <StatusPill status={viewEmployeeModal.status || "Active"} />
+                </div>
+                <p style={{ color: "#38bdf8", fontSize: 13, fontWeight: 600, margin: "4px 0" }}>
+                  {viewEmployeeModal.designation || "Team Member"} · {viewEmployeeModal.department || "Operations"}
+                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 6, flexWrap: "wrap" }}>
+                  <span
+                    style={{
+                      background: "rgba(15, 23, 42, 0.8)",
+                      border: "1px solid #1e3357",
+                      padding: "3px 10px",
+                      borderRadius: 6,
+                      fontSize: 11,
+                      color: "#94a3b8",
+                      fontWeight: 700,
+                    }}
+                  >
+                    ID: {viewEmployeeModal.employeeId || "—"}
+                  </span>
+                  {viewEmployeeModal.avatar && (
+                    <a
+                      href={getMediaUrl(viewEmployeeModal.avatar)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="button button-secondary"
+                      style={{ fontSize: 11, padding: "4px 10px", height: "auto" }}
+                    >
+                      <ExternalLink size={12} /> View Full Photo
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 14,
+              }}
+            >
+              <div style={{ padding: 14, borderRadius: 10, background: "#0a1222", border: "1px solid #1a2942" }}>
+                <small style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                  Work Email
+                </small>
+                <p style={{ color: "#f8fafc", fontSize: 13, margin: "4px 0 0", wordBreak: "break-all" }}>
+                  {viewEmployeeModal.email || "—"}
+                </p>
+              </div>
+
+              <div style={{ padding: 14, borderRadius: 10, background: "#0a1222", border: "1px solid #1a2942" }}>
+                <small style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                  Contact Phone
+                </small>
+                <p style={{ color: "#f8fafc", fontSize: 13, margin: "4px 0 0" }}>
+                  {viewEmployeeModal.phone || "—"}
+                </p>
+              </div>
+
+              <div style={{ padding: 14, borderRadius: 10, background: "#0a1222", border: "1px solid #1a2942" }}>
+                <small style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                  Department
+                </small>
+                <p style={{ color: "#f8fafc", fontSize: 13, margin: "4px 0 0" }}>
+                  {viewEmployeeModal.department || "—"}
+                </p>
+              </div>
+
+              <div style={{ padding: 14, borderRadius: 10, background: "#0a1222", border: "1px solid #1a2942" }}>
+                <small style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                  Emergency Contact
+                </small>
+                <p style={{ color: "#f8fafc", fontSize: 13, margin: "4px 0 0" }}>
+                  {viewEmployeeModal.emergencyContact || "—"}
+                </p>
+              </div>
+            </div>
+
+            {viewEmployeeModal.address && (
+              <div style={{ padding: 14, borderRadius: 10, background: "#0a1222", border: "1px solid #1a2942" }}>
+                <small style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                  Residential Address
+                </small>
+                <p style={{ color: "#f8fafc", fontSize: 13, margin: "4px 0 0" }}>
+                  {viewEmployeeModal.address}
+                </p>
+              </div>
+            )}
+
+            {viewEmployeeModal.bio && (
+              <div style={{ padding: 14, borderRadius: 10, background: "#0a1222", border: "1px solid #1a2942" }}>
+                <small style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                  Professional Bio
+                </small>
+                <p style={{ color: "#cbd5e1", fontSize: 12.5, margin: "4px 0 0", fontStyle: "italic" }}>
+                  "{viewEmployeeModal.bio}"
+                </p>
+              </div>
+            )}
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => setViewEmployeeModal(null)}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={() => {
+                  const emp = viewEmployeeModal;
+                  setViewEmployeeModal(null);
+                  openEdit(emp);
+                }}
+              >
+                <Pencil size={14} /> Edit Employee
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

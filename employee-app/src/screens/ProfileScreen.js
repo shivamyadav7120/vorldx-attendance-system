@@ -9,10 +9,15 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  Image,
+  Modal,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
 import { useAuth } from "../context/AuthContext";
-import api from "../services/api";
+import api, { getFullMediaUrl } from "../services/api";
 import biometricService from "../services/biometricService";
 import { colors, radii, shadows, spacing } from "../theme/tokens";
 import WateryCard from "../components/WateryCard";
@@ -29,25 +34,26 @@ export default function ProfileScreen({ onBack }) {
     disableBiometric,
   } = useAuth();
 
-  // Active Tab: "details" | "security" | "server"
   const [activeTab, setActiveTab] = useState("details");
 
-  // Profile Form States
   const [name, setName] = useState(employee?.name || user?.name || "");
   const [phone, setPhone] = useState(employee?.phone || "");
   const [designation, setDesignation] = useState(employee?.designation || "");
   const [address, setAddress] = useState(employee?.address || "");
   const [emergencyContact, setEmergencyContact] = useState(employee?.emergencyContact || "");
   const [bio, setBio] = useState(employee?.bio || "");
+  const [avatar, setAvatar] = useState(employee?.avatar || user?.avatar || "");
   const [savingProfile, setSavingProfile] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
 
-  // Security Form States
+
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
 
-  // Biometric States
+
   const [biometricInfo, setBiometricInfo] = useState({
     available: false,
     enrolled: false,
@@ -56,11 +62,11 @@ export default function ProfileScreen({ onBack }) {
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [biometricBusy, setBiometricBusy] = useState(false);
 
-  // Server URL
+
   const [serverUrl, setServerUrl] = useState("");
   const [savingUrl, setSavingUrl] = useState(false);
 
-  // Logout modal
+
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
 
   useEffect(() => {
@@ -73,8 +79,128 @@ export default function ProfileScreen({ onBack }) {
       setAddress(employee?.address || "");
       setEmergencyContact(employee?.emergencyContact || "");
       setBio(employee?.bio || "");
+      setAvatar(employee?.avatar || user?.avatar || "");
     }
   }, [employee, user]);
+
+  async function getAssetBase64(asset) {
+    if (asset.base64) {
+      return asset.base64.startsWith("data:")
+        ? asset.base64
+        : `data:image/jpeg;base64,${asset.base64}`;
+    }
+    if (asset.uri && asset.uri.startsWith("data:")) {
+      return asset.uri;
+    }
+    if (asset.uri && Platform.OS !== "web") {
+      try {
+        const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        return `data:image/jpeg;base64,${base64}`;
+      } catch (e) {
+        console.warn("Failed reading asset as base64 with FileSystem:", e);
+      }
+    }
+    return asset.uri;
+  }
+
+  async function processAndUploadImage(asset) {
+    setUploadingAvatar(true);
+    try {
+      const base64Data = await getAssetBase64(asset);
+      const res = await api.uploadAvatar(base64Data);
+      if (res?.avatarUrl) {
+        setAvatar(res.avatarUrl);
+        if (updateLocalProfile) {
+          updateLocalProfile(
+            res.user || { ...(user || {}), avatar: res.avatarUrl },
+            res.employee || { ...(employee || {}), avatar: res.avatarUrl }
+          );
+        }
+        Alert.alert("Photo Updated", "Your profile photo has been successfully updated!");
+      }
+    } catch (err) {
+      Alert.alert("Upload Failed", err.message || "Could not upload profile photo.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
+  async function handleChooseFromLibrary() {
+    setPhotoModalOpen(false);
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          "Permission Required",
+          "Photo library access is needed to select a profile picture."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        await processAndUploadImage(result.assets[0]);
+      }
+    } catch (err) {
+      Alert.alert("Picker Error", err.message || "Failed to open photo library.");
+    }
+  }
+
+  async function handleTakePhoto() {
+    setPhotoModalOpen(false);
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          "Permission Required",
+          "Camera access is needed to capture a profile picture."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        await processAndUploadImage(result.assets[0]);
+      }
+    } catch (err) {
+      Alert.alert("Camera Error", err.message || "Failed to open camera.");
+    }
+  }
+
+  async function handleRemovePhoto() {
+    setPhotoModalOpen(false);
+    setUploadingAvatar(true);
+    try {
+      const res = await api.updateProfile({ avatar: "" });
+      setAvatar("");
+      if (updateLocalProfile) {
+        updateLocalProfile(
+          res.user || { ...(user || {}), avatar: "" },
+          res.employee || { ...(employee || {}), avatar: "" }
+        );
+      }
+      Alert.alert("Photo Removed", "Your profile photo has been removed.");
+    } catch (err) {
+      Alert.alert("Error", err.message || "Failed to remove photo.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
 
   async function loadBiometricStatus() {
     try {
@@ -209,7 +335,7 @@ export default function ProfileScreen({ onBack }) {
 
   return (
     <View style={styles.container}>
-      {/* Top Header */}
+      {}
       <View style={styles.header}>
         {onBack ? (
           <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
@@ -232,12 +358,34 @@ export default function ProfileScreen({ onBack }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* User Hero Identity Card */}
         <WateryCard style={styles.identityCard} elevated>
           <View style={styles.avatarRow}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarInitials}>{initials}</Text>
-            </View>
+            <TouchableOpacity
+              style={styles.avatarCircleContainer}
+              onPress={() => setPhotoModalOpen(true)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.avatarCircle}>
+                {avatar ? (
+                  <Image
+                    source={{ uri: getFullMediaUrl(avatar) }}
+                    style={styles.avatarImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={styles.avatarInitials}>{initials}</Text>
+                )}
+                {uploadingAvatar && (
+                  <View style={styles.avatarLoadingOverlay}>
+                    <ActivityIndicator size="small" color="#00f0ff" />
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.avatarEditBadge}>
+                <Ionicons name="camera" size={13} color="#040915" />
+              </View>
+            </TouchableOpacity>
 
             <View style={styles.identityDetails}>
               <View style={styles.corpBadge}>
@@ -253,11 +401,22 @@ export default function ProfileScreen({ onBack }) {
               <Text style={styles.identityEmail} numberOfLines={1}>
                 {user?.email || "employee@vorldx.com"}
               </Text>
+
+              <TouchableOpacity
+                style={styles.changePhotoPill}
+                onPress={() => setPhotoModalOpen(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="camera-outline" size={12} color="#00f0ff" />
+                <Text style={styles.changePhotoPillText}>
+                  {avatar ? "Change Photo" : "Upload Photo"}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </WateryCard>
 
-        {/* Tab Selection Row */}
+        {}
         <View style={styles.tabRow}>
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === "details" && styles.tabBtnActive]}
@@ -305,7 +464,7 @@ export default function ProfileScreen({ onBack }) {
           </TouchableOpacity>
         </View>
 
-        {/* TAB 1: PROFILE DETAILS */}
+        {}
         {activeTab === "details" && (
           <WateryCard style={styles.tabContentCard} elevated>
             <Text style={styles.sectionHeader}>EMPLOYEE INFORMATION</Text>
@@ -389,10 +548,10 @@ export default function ProfileScreen({ onBack }) {
           </WateryCard>
         )}
 
-        {/* TAB 2: BIOMETRICS & SECURITY */}
+        {}
         {activeTab === "security" && (
           <View style={styles.securityStack}>
-            {/* Native Biometric Sensor Toggle Card */}
+            {}
             <WateryCard style={styles.tabContentCard} elevated>
               <View style={styles.bioCardHeader}>
                 <View style={styles.bioIconBox}>
@@ -467,7 +626,7 @@ export default function ProfileScreen({ onBack }) {
               />
             </WateryCard>
 
-            {/* Change Password Card */}
+            {}
             <WateryCard style={styles.tabContentCard} elevated>
               <Text style={styles.sectionHeader}>CHANGE ACCOUNT PASSWORD</Text>
 
@@ -518,7 +677,7 @@ export default function ProfileScreen({ onBack }) {
           </View>
         )}
 
-        {/* TAB 3: SERVER CONFIGURATION */}
+        {}
         {activeTab === "server" && (
           <WateryCard style={styles.tabContentCard} elevated>
             <Text style={styles.sectionHeader}>BACKEND SERVER ENDPOINT</Text>
@@ -548,7 +707,7 @@ export default function ProfileScreen({ onBack }) {
           </WateryCard>
         )}
 
-        {/* Sign Out Action Card */}
+        {}
         <WateryCard style={styles.logoutCard}>
           <Text style={styles.logoutTitle}>Session Termination</Text>
           <Text style={styles.logoutDesc}>
@@ -565,7 +724,7 @@ export default function ProfileScreen({ onBack }) {
         </WateryCard>
       </ScrollView>
 
-      {/* Confirmation Modal for Sign Out */}
+      {}
       <ConfirmationModal
         visible={logoutModalOpen}
         title="Sign Out of VorldX?"
@@ -579,6 +738,89 @@ export default function ProfileScreen({ onBack }) {
         onCancel={() => setLogoutModalOpen(false)}
         icon="log-out-outline"
       />
+
+      {}
+      <Modal
+        visible={photoModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPhotoModalOpen(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setPhotoModalOpen(false)}>
+          <View style={styles.modalBackdrop}>
+            <TouchableWithoutFeedback>
+              <View style={styles.photoModalDialog}>
+                <View style={styles.photoModalHeader}>
+                  <View style={styles.photoModalIconBox}>
+                    <Ionicons name="camera" size={24} color="#00f0ff" />
+                  </View>
+                  <Text style={styles.photoModalTitle}>Profile Photo</Text>
+                  <Text style={styles.photoModalSubtitle}>
+                    Upload or take a photo to represent your employee profile
+                  </Text>
+                </View>
+
+                <View style={styles.photoModalActions}>
+                  <TouchableOpacity
+                    style={styles.photoOptionBtn}
+                    onPress={handleTakePhoto}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.photoOptionIcon, { backgroundColor: "rgba(2, 132, 199, 0.2)" }]}>
+                      <Ionicons name="camera" size={20} color="#38bdf8" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.photoOptionTitle}>Take New Photo</Text>
+                      <Text style={styles.photoOptionDesc}>Open camera and take a selfie</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color="#64748b" />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.photoOptionBtn}
+                    onPress={handleChooseFromLibrary}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.photoOptionIcon, { backgroundColor: "rgba(0, 240, 255, 0.15)" }]}>
+                      <Ionicons name="images" size={20} color="#00f0ff" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.photoOptionTitle}>Choose from Gallery</Text>
+                      <Text style={styles.photoOptionDesc}>Select from device photos</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color="#64748b" />
+                  </TouchableOpacity>
+
+                  {Boolean(avatar) && (
+                    <TouchableOpacity
+                      style={[styles.photoOptionBtn, styles.photoOptionBtnRemove]}
+                      onPress={handleRemovePhoto}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.photoOptionIcon, { backgroundColor: "rgba(239, 68, 68, 0.15)" }]}>
+                        <Ionicons name="trash-outline" size={20} color="#ef4444" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.photoOptionTitle, { color: "#ef4444" }]}>Remove Current Photo</Text>
+                        <Text style={styles.photoOptionDesc}>Revert to name initials</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color="#ef4444" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <TouchableOpacity
+                  style={styles.photoModalCancelBtn}
+                  onPress={() => setPhotoModalOpen(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.photoModalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }
@@ -645,22 +887,159 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.md,
   },
+  avatarCircleContainer: {
+    position: "relative",
+  },
   avatarCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: colors.darkButton,
     borderWidth: 2.5,
-    borderColor: colors.borderWateryActive,
+    borderColor: "#00f0ff",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
     ...shadows.darkButton,
   },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(4, 9, 21, 0.7)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarEditBadge: {
+    position: "absolute",
+    bottom: -1,
+    right: -1,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#00f0ff",
+    borderWidth: 2,
+    borderColor: "#040915",
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 4,
+  },
   avatarInitials: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "900",
     color: "#FFFFFF",
     letterSpacing: 0.5,
+  },
+  changePhotoPill: {
+    marginTop: 6,
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(0, 240, 255, 0.12)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(0, 240, 255, 0.3)",
+  },
+  changePhotoPillText: {
+    fontSize: 10.5,
+    fontWeight: "700",
+    color: "#00f0ff",
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(4, 9, 21, 0.8)",
+    justifyContent: "flex-end",
+    padding: spacing.md,
+  },
+  photoModalDialog: {
+    backgroundColor: "#081326",
+    borderRadius: 20,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(0, 240, 255, 0.25)",
+    elevation: 10,
+  },
+  photoModalHeader: {
+    alignItems: "center",
+    marginBottom: spacing.lg,
+  },
+  photoModalIconBox: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "rgba(0, 240, 255, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 240, 255, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  photoModalTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#f8fafc",
+  },
+  photoModalSubtitle: {
+    fontSize: 12,
+    color: "#94a3b8",
+    textAlign: "center",
+    marginTop: 3,
+    paddingHorizontal: 16,
+  },
+  photoModalActions: {
+    gap: 10,
+    marginBottom: 12,
+  },
+  photoOptionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    backgroundColor: "#0d1b33",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#1e3357",
+  },
+  photoOptionBtnRemove: {
+    borderColor: "rgba(239, 68, 68, 0.3)",
+    backgroundColor: "rgba(239, 68, 68, 0.08)",
+  },
+  photoOptionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoOptionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#f8fafc",
+  },
+  photoOptionDesc: {
+    fontSize: 11,
+    color: "#94a3b8",
+    marginTop: 2,
+  },
+  photoModalCancelBtn: {
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: "#0d1b33",
+    borderWidth: 1,
+    borderColor: "#1e3357",
+    marginTop: 4,
+  },
+  photoModalCancelText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#cbd5e1",
   },
   identityDetails: {
     flex: 1,

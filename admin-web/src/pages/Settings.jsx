@@ -16,7 +16,7 @@ import { useAuth } from "../context/AuthContext";
 import api, { errorMessage, USER_KEY, TOKEN_KEY } from "../services/api";
 
 export default function Settings() {
-  const { user, logout, isSuperAdmin } = useAuth();
+  const { user, logout, updateUser, isSuperAdmin } = useAuth();
 
   const [policy, setPolicy] = useState({
     officeStartTime: "09:00",
@@ -108,11 +108,13 @@ export default function Settings() {
       });
 
       if (data.user) {
-        const updatedUser = { ...user, ...data.user };
-        const store = localStorage.getItem(TOKEN_KEY)
-          ? localStorage
-          : sessionStorage;
-        store.setItem(USER_KEY, JSON.stringify(updatedUser));
+        updateUser(data.user);
+      } else {
+        updateUser({
+          name: profileForm.name.trim(),
+          phone: profileForm.phone.trim(),
+          designation: profileForm.designation.trim(),
+        });
       }
 
       setProfileNotice("Profile updated successfully.");

@@ -10,9 +10,9 @@ const isValidDate = (value) =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   !Number.isNaN(Date.parse(value));
 
-// ==========================================
-// EMPLOYEE — SUBMIT LEAVE REQUEST
-// ==========================================
+
+
+
 router.post(
   "/leave",
   authenticate,
@@ -45,7 +45,7 @@ router.post(
         });
       }
 
-      // Check overlapping Leave (PENDING or APPROVED)
+
       const existingLeave = await LeaveRequest.findOne({
         employee: employee._id,
         status: { $in: ["PENDING", "APPROVED"] },
@@ -60,7 +60,7 @@ router.post(
         });
       }
 
-      // Check overlapping WFH (APPROVED)
+
       const existingWfh = await WfhRequest.findOne({
         employee: employee._id,
         status: "APPROVED",
@@ -95,9 +95,9 @@ router.post(
   }
 );
 
-// ==========================================
-// EMPLOYEE — MY LEAVE REQUESTS
-// ==========================================
+
+
+
 router.get(
   "/leave/my",
   authenticate,
@@ -119,9 +119,9 @@ router.get(
   }
 );
 
-// ==========================================
-// ADMIN — LIST ALL LEAVE REQUESTS
-// ==========================================
+
+
+
 router.get(
   "/leave",
   authenticate,
@@ -134,13 +134,13 @@ router.get(
       }
 
       const requests = await LeaveRequest.find(filter)
-        .populate("employee", "employeeId name email department designation user")
+        .populate("employee", "employeeId name email department designation user avatar")
         .populate("decidedBy", "name email role")
         .sort({ createdAt: -1 })
         .limit(500)
         .lean();
 
-      // HR Admin role restriction
+
       let filtered = requests;
       if (req.user.role === "HR_ADMIN") {
         const userIds = requests.map((r) => r.employee?.user).filter(Boolean);
@@ -160,9 +160,9 @@ router.get(
   }
 );
 
-// ==========================================
-// ADMIN — APPROVE OR REJECT LEAVE REQUEST
-// ==========================================
+
+
+
 router.patch(
   "/leave/:id/status",
   authenticate,
@@ -195,7 +195,7 @@ router.patch(
         });
       }
 
-      // HR Admin role restriction
+
       if (req.user.role === "HR_ADMIN" && request.employee?.user) {
         const targetUser = await User.findById(request.employee.user);
         if (targetUser && targetUser.role !== "EMPLOYEE") {
@@ -238,9 +238,9 @@ router.patch(
   }
 );
 
-// ==========================================
-// EMPLOYEE — CANCEL OWN PENDING LEAVE REQUEST
-// ==========================================
+
+
+
 router.patch(
   "/leave/:id/cancel",
   authenticate,

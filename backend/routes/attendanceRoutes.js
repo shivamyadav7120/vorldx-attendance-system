@@ -7,9 +7,9 @@ import { logAction } from "../services/auditService.js";
 
 const router = express.Router();
 
-// ==========================================
-// EMPLOYEE — MY ATTENDANCE HISTORY
-// ==========================================
+
+
+
 router.get(
   "/attendance/my",
   authenticate,
@@ -44,9 +44,9 @@ router.get(
   }
 );
 
-// ==========================================
-// EMPLOYEE — TODAY'S ATTENDANCE STATUS
-// ==========================================
+
+
+
 router.get(
   "/attendance/today",
   authenticate,
@@ -82,9 +82,9 @@ router.get(
   }
 );
 
-// ==========================================
-// EMPLOYEE CHECK-IN
-// ==========================================
+
+
+
 router.post(
   "/attendance/check-in",
   authenticate,
@@ -126,7 +126,7 @@ router.post(
         });
       }
 
-      // 1. OFFICE MODE: Validate & consume 18-second QR code
+
       if (mode === "OFFICE") {
         if (!qrToken) {
           return res.status(400).json({
@@ -135,11 +135,11 @@ router.post(
           });
         }
 
-        // consumeQrToken atomically validates expiry and marks token used to prevent replay
+
         await consumeQrToken(qrToken, req.user);
       }
 
-      // 2. WFH MODE: Validate approved WFH request for today
+
       if (mode === "WFH") {
         const approvedWfh = await WfhRequest.findOne({
           employee: employee._id,
@@ -160,7 +160,7 @@ router.post(
       const indiaTime = getIndiaTime(now);
       const policy = await getPolicy();
 
-      // Determine status according to policy (09:30 cutoff)
+
       const status = evaluateAttendanceStatus(indiaTime, policy);
 
       const attendance = await Attendance.create({
@@ -192,9 +192,9 @@ router.post(
   }
 );
 
-// ==========================================
-// EMPLOYEE CHECK-OUT
-// ==========================================
+
+
+
 router.patch(
   "/attendance/check-out",
   authenticate,
@@ -232,12 +232,37 @@ router.patch(
         });
       }
 
+      const { qrToken } = req.body || {};
+
+      if (!qrToken || typeof qrToken !== "string") {
+        return res.status(400).json({
+          success: false,
+          message: "Check-out requires scanning the live office screen QR code. Automatic check-out is not permitted.",
+        });
+      }
+
+      await consumeQrToken(qrToken, req.user);
+
       attendance.checkOut = new Date();
       await attendance.save();
 
+      await logAction({
+        actor: req.user,
+        action: "ATTENDANCE_CHECK_OUT_QR",
+        targetType: "Attendance",
+        targetId: attendance._id,
+        details: {
+          employeeId: employee.employeeId,
+          checkOutTime: attendance.checkOut,
+          date: getIndiaDate(),
+          method: "QR_SCREEN_SCAN",
+        },
+        ipAddress: req.ip,
+      });
+
       return res.json({
         success: true,
-        message: "Check-out recorded successfully",
+        message: "Office check-out verified via screen QR scan successfully",
         attendance,
       });
     } catch (error) {
@@ -246,9 +271,9 @@ router.patch(
   }
 );
 
-// ==========================================
-// ADMIN — LIST ATTENDANCE RECORDS (WITH FILTERS)
-// ==========================================
+
+
+
 router.get(
   "/attendance",
   authenticate,
@@ -278,13 +303,13 @@ router.get(
       }
 
       const attendance = await Attendance.find(filter)
-        .populate("employee", "employeeId name email department designation user")
+        .populate("employee", "employeeId name email department designation user avatar")
         .populate("correctionHistory.correctedBy", "name email role")
         .sort({ date: -1, checkIn: -1 })
         .limit(1000)
         .lean();
 
-      // Permission check: HR Admin can view employees only, Super Admin can view all
+
       let filteredRecords = attendance;
       if (req.user.role === "HR_ADMIN") {
         const userIds = attendance.map((a) => a.employee?.user).filter(Boolean);
@@ -307,9 +332,9 @@ router.get(
   }
 );
 
-// ==========================================
-// ADMIN — MANUAL ATTENDANCE MARK
-// ==========================================
+
+
+
 router.post(
   "/attendance/manual",
   authenticate,
@@ -350,7 +375,7 @@ router.post(
         });
       }
 
-      // HR Admin role check: cannot mark for HR Admin or Super Admin
+
       if (req.user.role === "HR_ADMIN" && employee.user) {
         const targetUser = await User.findById(employee.user);
         if (targetUser && targetUser.role !== "EMPLOYEE") {
@@ -370,7 +395,7 @@ router.post(
       const method = req.user.role === "SUPER_ADMIN" ? "SUPER_ADMIN_MANUAL" : "HR_MANUAL";
 
       if (attendance) {
-        // Record correction history
+
         const previousData = {
           previousStatus: attendance.status,
           newStatus: status.toUpperCase(),
@@ -432,9 +457,9 @@ router.post(
   }
 );
 
-// ==========================================
-// ADMIN — ATTENDANCE CORRECTION WITH HISTORY
-// ==========================================
+
+
+
 router.patch(
   "/attendance/:id/correct",
   authenticate,
@@ -458,7 +483,7 @@ router.patch(
         });
       }
 
-      // HR Admin role restriction
+
       if (req.user.role === "HR_ADMIN" && attendance.employee?.user) {
         const targetUser = await User.findById(attendance.employee.user);
         if (targetUser && targetUser.role !== "EMPLOYEE") {

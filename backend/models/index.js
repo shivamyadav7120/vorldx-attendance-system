@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-// ==================== USER MODEL ====================
+
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -27,6 +27,10 @@ const userSchema = new mongoose.Schema(
       enum: ["SUPER_ADMIN", "HR_ADMIN", "EMPLOYEE"],
       required: true,
     },
+    avatar: {
+      type: String,
+      default: "",
+    },
     active: {
       type: Boolean,
       default: true,
@@ -35,7 +39,7 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ==================== EMPLOYEE MODEL ====================
+
 const employeeSchema = new mongoose.Schema(
   {
     employeeId: {
@@ -113,7 +117,7 @@ const employeeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ==================== ATTENDANCE CORRECTION SUB-SCHEMA ====================
+
 const correctionEntrySchema = new mongoose.Schema(
   {
     correctedBy: {
@@ -143,7 +147,7 @@ const correctionEntrySchema = new mongoose.Schema(
   { _id: true }
 );
 
-// ==================== ATTENDANCE MODEL ====================
+
 const attendanceSchema = new mongoose.Schema(
   {
     employee: {
@@ -191,11 +195,11 @@ const attendanceSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Unique compound index: one attendance record per employee per date.
+
 attendanceSchema.index({ employee: 1, date: 1 }, { unique: true });
 attendanceSchema.index({ date: 1, status: 1 });
 
-// ==================== WFH REQUEST MODEL ====================
+
 const wfhSchema = new mongoose.Schema(
   {
     employee: {
@@ -217,12 +221,18 @@ const wfhSchema = new mongoose.Schema(
     documentType: { type: String, trim: true, default: "" },
     status: {
       type: String,
-      enum: ["PENDING", "APPROVED", "REJECTED", "CANCELLED"],
+      enum: ["PENDING", "HR_APPROVED", "APPROVED", "REJECTED", "CANCELLED"],
       default: "PENDING",
     },
     decisionComment: { type: String, trim: true, maxlength: 500, default: "" },
     decidedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     decidedAt: { type: Date, default: null },
+    hrApprovedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    hrApprovedAt: { type: Date, default: null },
+    hrComment: { type: String, trim: true, maxlength: 500, default: "" },
+    adminApprovedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    adminApprovedAt: { type: Date, default: null },
+    adminComment: { type: String, trim: true, maxlength: 500, default: "" },
   },
   { timestamps: true }
 );
@@ -230,7 +240,7 @@ const wfhSchema = new mongoose.Schema(
 wfhSchema.index({ employee: 1, status: 1 });
 wfhSchema.index({ startDate: 1, endDate: 1, status: 1 });
 
-// ==================== LEAVE REQUEST MODEL ====================
+
 const leaveSchema = new mongoose.Schema(
   {
     employee: {
@@ -249,12 +259,18 @@ const leaveSchema = new mongoose.Schema(
     reason: { type: String, trim: true, maxlength: 500, default: "" },
     status: {
       type: String,
-      enum: ["PENDING", "APPROVED", "REJECTED", "CANCELLED"],
+      enum: ["PENDING", "HR_APPROVED", "APPROVED", "REJECTED", "CANCELLED"],
       default: "PENDING",
     },
     decisionComment: { type: String, trim: true, maxlength: 500, default: "" },
     decidedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     decidedAt: { type: Date, default: null },
+    hrApprovedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    hrApprovedAt: { type: Date, default: null },
+    hrComment: { type: String, trim: true, maxlength: 500, default: "" },
+    adminApprovedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    adminApprovedAt: { type: Date, default: null },
+    adminComment: { type: String, trim: true, maxlength: 500, default: "" },
   },
   { timestamps: true }
 );
@@ -262,7 +278,7 @@ const leaveSchema = new mongoose.Schema(
 leaveSchema.index({ employee: 1, status: 1 });
 leaveSchema.index({ startDate: 1, endDate: 1, status: 1 });
 
-// ==================== QR SESSION MODEL ====================
+
 const qrSessionSchema = new mongoose.Schema(
   {
     token: { type: String, required: true, unique: true },
@@ -276,10 +292,10 @@ const qrSessionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// TTL index to automatically purge expired records
+
 qrSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 60 });
 
-// ==================== ATTENDANCE POLICY MODEL ====================
+
 const attendancePolicySchema = new mongoose.Schema(
   {
     key: { type: String, default: "default", unique: true },
@@ -299,7 +315,7 @@ const attendancePolicySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ==================== AUDIT LOG MODEL ====================
+
 const auditLogSchema = new mongoose.Schema(
   {
     actor: {
@@ -324,7 +340,7 @@ const auditLogSchema = new mongoose.Schema(
 
 auditLogSchema.index({ createdAt: -1 });
 
-// ==================== ORGANIZATION MODEL ====================
+
 const organizationSchema = new mongoose.Schema(
   {
     key: { type: String, default: "default", unique: true },
@@ -339,8 +355,74 @@ const organizationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ==================== EXPORT COMPILED MODELS ====================
-// Support both new compiles and cached Mongoose model instances
+const notificationSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 200,
+    },
+    message: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 2000,
+    },
+    type: {
+      type: String,
+      enum: ["BROADCAST", "DIRECT_MESSAGE", "ANNOUNCEMENT", "ALERT", "SYSTEM"],
+      default: "BROADCAST",
+    },
+    targetAudience: {
+      type: String,
+      enum: ["ALL", "EMPLOYEES", "HR", "DEPARTMENT", "USER"],
+      default: "ALL",
+    },
+    targetDepartment: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    targetUser: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    priority: {
+      type: String,
+      enum: ["NORMAL", "HIGH", "URGENT"],
+      default: "NORMAL",
+    },
+    sender: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    senderName: {
+      type: String,
+      default: "Administrator",
+    },
+    senderRole: {
+      type: String,
+      default: "SUPER_ADMIN",
+    },
+    readBy: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        readAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+  },
+  { timestamps: true }
+);
+
 export const User = mongoose.models.User || mongoose.model("User", userSchema);
 export const Employee = mongoose.models.Employee || mongoose.model("Employee", employeeSchema);
 export const Attendance = mongoose.models.Attendance || mongoose.model("Attendance", attendanceSchema);
@@ -350,3 +432,4 @@ export const QrSession = mongoose.models.QrSession || mongoose.model("QrSession"
 export const AttendancePolicy = mongoose.models.AttendancePolicy || mongoose.model("AttendancePolicy", attendancePolicySchema);
 export const AuditLog = mongoose.models.AuditLog || mongoose.model("AuditLog", auditLogSchema);
 export const Organization = mongoose.models.Organization || mongoose.model("Organization", organizationSchema);
+export const Notification = mongoose.models.Notification || mongoose.model("Notification", notificationSchema);

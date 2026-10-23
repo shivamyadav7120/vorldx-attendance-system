@@ -13,7 +13,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, radii, shadows } from "../theme/tokens";
 import DarkButton from "./DarkButton";
 
-export default function ScannerModal({ visible, onClose, onScan, scanning }) {
+export default function ScannerModal({
+  visible,
+  onClose,
+  onScan,
+  scanning,
+  title = "Office QR Scanner",
+  subtitle = "Hold steady to verify check-in",
+}) {
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState("back");
   const [enableTorch, setEnableTorch] = useState(false);
@@ -28,7 +35,6 @@ export default function ScannerModal({ visible, onClose, onScan, scanning }) {
       onRequestClose={onClose}
     >
       <View style={styles.container}>
-        {/* Top Floating Control Bar */}
         <View style={styles.topBar}>
           <TouchableOpacity
             style={styles.circleButton}
@@ -39,8 +45,8 @@ export default function ScannerModal({ visible, onClose, onScan, scanning }) {
           </TouchableOpacity>
 
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>Office QR Scanner</Text>
-            <Text style={styles.subtitle}>Hold steady to verify check-in</Text>
+            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.subtitle}>{subtitle}</Text>
           </View>
 
           <TouchableOpacity
@@ -56,7 +62,7 @@ export default function ScannerModal({ visible, onClose, onScan, scanning }) {
           </TouchableOpacity>
         </View>
 
-        {/* Camera Surface */}
+        {}
         {!permission ? (
           <View style={styles.centerMessage}>
             <ActivityIndicator size="large" color={colors.primary} />
@@ -97,14 +103,14 @@ export default function ScannerModal({ visible, onClose, onScan, scanning }) {
                   }
             }
           >
-            {/* Dark Mask with Transparent Reticle */}
+            {}
             <View style={styles.overlayContainer}>
               <View style={styles.maskTop} />
               
               <View style={styles.reticleRow}>
                 <View style={styles.maskSide} />
                 <View style={styles.reticleFrame}>
-                  {/* Four Corner Reticles */}
+                  {}
                   <View style={[styles.corner, styles.topLeft]} />
                   <View style={[styles.corner, styles.topRight]} />
                   <View style={[styles.corner, styles.bottomLeft]} />

@@ -15,8 +15,11 @@ import {
   Download,
   Eye,
   ShieldAlert,
+  Clock,
+  ShieldCheck,
 } from "lucide-react";
 import api, { errorMessage } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 import StatusPill from "../components/StatusPill";
 import EmptyState from "../components/EmptyState";
 import Modal from "../components/Modal";
@@ -24,11 +27,12 @@ import Modal from "../components/Modal";
 const arr = (d) => (Array.isArray(d) ? d : d?.requests || d?.data || []);
 
 export default function Approvals() {
+  const { user, isSuperAdmin, isHRAdmin } = useAuth();
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [filter, setFilter] = useState("PENDING");
+  const [filter, setFilter] = useState("ALL");
   const [search, setSearch] = useState("");
   const [wfhAvailability, setWfhAvailability] = useState(null);
 
@@ -116,9 +120,16 @@ export default function Approvals() {
         decisionComment: comment,
       });
 
-      setNotice(
-        `${item.requestType} for ${item.employee?.name || "employee"} has been ${status.toLowerCase()}.`
-      );
+      const wasHrApproval = !isLeave && item.status === "PENDING" && status === "APPROVED" && isHRAdmin;
+      const wasAdminFinalApproval = !isLeave && item.status === "HR_APPROVED" && status === "APPROVED" && isSuperAdmin;
+
+      let msg = `${item.requestType} for ${item.employee?.name || "employee"} has been ${status.toLowerCase()}.`;
+      if (wasHrApproval) {
+        msg = `WFH request for ${item.employee?.name || "employee"} approved by HR and forwarded to Super Admin for final confirmation.`;
+      } else if (wasAdminFinalApproval) {
+        msg = `WFH request for ${item.employee?.name || "employee"} confirmed and fully approved by Super Admin.`;
+      }
+      setNotice(msg);
       setDecisionModal(null);
       await load();
     } catch (err) {
@@ -251,7 +262,8 @@ export default function Approvals() {
 
       <div className="filter-tabs">
         {[
-          ["PENDING", "Pending"],
+          ["PENDING", "Pending HR Review"],
+          ["HR_APPROVED", "Awaiting Admin Confirm"],
           ["URGENT", "🚨 Urgent Requests"],
           ["APPROVED", "Approved"],
           ["REJECTED", "Rejected"],
@@ -302,7 +314,7 @@ export default function Approvals() {
                   <th>Reason & Details</th>
                   <th>Verified Document</th>
                   <th>Status</th>
-                  <th>Decision Comment</th>
+                  <th>Decision Comments</th>
                   <th className="align-right">Actions</th>
                 </tr>
               </thead>
@@ -311,13 +323,21 @@ export default function Approvals() {
                   <tr key={x._id || x.id || i}>
                     <td>
                       <div className="person-cell">
-                        <div className="avatar avatar-small">
-                          {String(x.employee?.name || x.name || "?")
-                            .split(" ")
-                            .map((w) => w[0])
-                            .slice(0, 2)
-                            .join("")
-                            .toUpperCase()}
+                        <div className="avatar avatar-small" style={{ overflow: "hidden" }}>
+                          {x.employee?.avatar ? (
+                            <img
+                              src={x.employee.avatar.startsWith("http") ? x.employee.avatar : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api\/?$/, "")}${x.employee.avatar.startsWith("/") ? x.employee.avatar : `/${x.employee.avatar}`}`}
+                              alt=""
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            />
+                          ) : (
+                            String(x.employee?.name || x.name || "?")
+                              .split(" ")
+                              .map((w) => w[0])
+                              .slice(0, 2)
+                              .join("")
+                              .toUpperCase()
+                          )}
                         </div>
                         <div>
                           <b>{x.employee?.name || x.name || "Employee"}</b>
@@ -378,29 +398,143 @@ export default function Approvals() {
                       <StatusPill status={x.status || "PENDING"} />
                     </td>
                     <td>
-                      {x.decisionComment ? (
-                        <small style={{ color: "#94a3b8", fontStyle: "italic" }}>
-                          "{x.decisionComment}"
-                        </small>
+                      {x.decisionComment || x.hrComment || x.adminComment ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3, maxWidth: 220 }}>
+                          {x.hrComment && (
+                            <small style={{ color: "#38bdf8", fontSize: 11 }}>
+                              <b>HR:</b> "{x.hrComment}"
+                            </small>
+                          )}
+                          {x.adminComment && (
+                            <small style={{ color: "#34d399", fontSize: 11 }}>
+                              <b>Admin:</b> "{x.adminComment}"
+                            </small>
+                          )}
+                          {!x.hrComment && !x.adminComment && x.decisionComment && (
+                            <small style={{ color: "#94a3b8", fontStyle: "italic", fontSize: 11 }}>
+                              "{x.decisionComment}"
+                            </small>
+                          )}
+                        </div>
                       ) : (
                         <span className="muted-small">—</span>
                       )}
                     </td>
                     <td>
                       <div className="row-actions">
-                        {String(x.status || "PENDING").toUpperCase() === "PENDING" ? (
+                        {x.category === "WFH" ? (
+                          String(x.status || "PENDING").toUpperCase() === "PENDING" ? (
+                            isHRAdmin ? (
+                              <>
+                                <button
+                                  className="decision-button approve"
+                                  onClick={() => promptDecision(x, "APPROVED")}
+                                  title="Approve WFH and forward to Admin for final confirmation"
+                                >
+                                  <Check size={14} /> Approve (Forward)
+                                </button>
+                                <button
+                                  className="decision-button reject"
+                                  onClick={() => promptDecision(x, "REJECTED")}
+                                  title="Reject request"
+                                >
+                                  <X size={14} /> Reject
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <span
+                                  style={{
+                                    fontSize: 11,
+                                    padding: "4px 8px",
+                                    borderRadius: 6,
+                                    background: "rgba(245, 158, 11, 0.12)",
+                                    border: "1px solid rgba(245, 158, 11, 0.3)",
+                                    color: "#f59e0b",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    fontWeight: 600,
+                                  }}
+                                  title="HR review is required before Super Admin can confirm"
+                                >
+                                  <Clock size={12} /> Awaiting HR
+                                </span>
+                                <button
+                                  className="decision-button reject"
+                                  onClick={() => promptDecision(x, "REJECTED")}
+                                  title="Reject request directly"
+                                >
+                                  <X size={14} /> Reject
+                                </button>
+                              </>
+                            )
+                          ) : String(x.status).toUpperCase() === "HR_APPROVED" ? (
+                            isSuperAdmin ? (
+                              <>
+                                <button
+                                  className="decision-button approve"
+                                  style={{
+                                    background: "linear-gradient(135deg, #0284c7 0%, #00f0ff 100%)",
+                                    color: "#040915",
+                                    fontWeight: 700,
+                                    boxShadow: "0 2px 10px rgba(0, 240, 255, 0.25)",
+                                  }}
+                                  onClick={() => promptDecision(x, "APPROVED")}
+                                  title="Confirm & Final Approve WFH"
+                                >
+                                  <ShieldCheck size={14} /> Confirm & Approve
+                                </button>
+                                <button
+                                  className="decision-button reject"
+                                  onClick={() => promptDecision(x, "REJECTED")}
+                                  title="Reject request"
+                                >
+                                  <X size={14} /> Reject
+                                </button>
+                              </>
+                            ) : (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  padding: "4px 8px",
+                                  borderRadius: 6,
+                                  background: "rgba(14, 165, 233, 0.15)",
+                                  border: "1px solid rgba(14, 165, 233, 0.3)",
+                                  color: "#38bdf8",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                <Check size={12} /> HR Approved · Awaiting Admin
+                              </span>
+                            )
+                          ) : (
+                            <span className="muted-small">
+                              {x.adminApprovedBy?.name
+                                ? `Confirmed by ${x.adminApprovedBy.name}`
+                                : x.hrApprovedBy?.name
+                                ? `HR: ${x.hrApprovedBy.name}`
+                                : x.decidedBy?.name
+                                ? `By ${x.decidedBy.name}`
+                                : "Reviewed"}
+                            </span>
+                          )
+                        ) : String(x.status || "PENDING").toUpperCase() === "PENDING" ? (
                           <>
                             <button
                               className="decision-button approve"
                               onClick={() => promptDecision(x, "APPROVED")}
-                              title="Approve request"
+                              title="Approve leave"
                             >
                               <Check size={14} /> Approve
                             </button>
                             <button
                               className="decision-button reject"
                               onClick={() => promptDecision(x, "REJECTED")}
-                              title="Reject request"
+                              title="Reject leave"
                             >
                               <X size={14} /> Reject
                             </button>
@@ -433,6 +567,53 @@ export default function Approvals() {
           className="modal-wide"
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "10px 14px",
+                background: "#0c1527",
+                borderRadius: 10,
+                border: "1px solid #1e2c44",
+              }}
+            >
+              <div
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 21,
+                  background: "#081326",
+                  border: "1.5px solid #00f0ff",
+                  overflow: "hidden",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {viewDocModal.employee?.avatar ? (
+                  <img
+                    src={getDocumentFullUrl(viewDocModal.employee.avatar)}
+                    alt=""
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>
+                    {String(viewDocModal.employee?.name || "?")[0]}
+                  </span>
+                )}
+              </div>
+              <div>
+                <b style={{ color: "#f8fafc", fontSize: 13.5 }}>
+                  {viewDocModal.employee?.name || "Employee"}
+                </b>
+                <p style={{ color: "#64748b", fontSize: 11, margin: "2px 0 0" }}>
+                  {viewDocModal.employee?.designation || "Team Member"} · {viewDocModal.employee?.department || "Department"} (ID: {viewDocModal.employee?.employeeId || "—"})
+                </p>
+              </div>
+            </div>
+
             <div
               style={{
                 padding: "12px 16px",
@@ -546,7 +727,83 @@ export default function Approvals() {
               >
                 Close Preview
               </button>
-              {String(viewDocModal.status || "PENDING").toUpperCase() === "PENDING" && (
+              {viewDocModal.category === "WFH" ? (
+                String(viewDocModal.status || "PENDING").toUpperCase() === "PENDING" ? (
+                  isHRAdmin ? (
+                    <>
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        style={{ color: "#fb7185", borderColor: "#5c2033" }}
+                        onClick={() => {
+                          const item = viewDocModal;
+                          setViewDocModal(null);
+                          promptDecision(item, "REJECTED");
+                        }}
+                      >
+                        Reject Request
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-primary"
+                        onClick={() => {
+                          const item = viewDocModal;
+                          setViewDocModal(null);
+                          promptDecision(item, "APPROVED");
+                        }}
+                      >
+                        <Check size={14} /> Approve & Forward to Admin
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      style={{ color: "#fb7185", borderColor: "#5c2033" }}
+                      onClick={() => {
+                        const item = viewDocModal;
+                        setViewDocModal(null);
+                        promptDecision(item, "REJECTED");
+                      }}
+                    >
+                      Reject Request
+                    </button>
+                  )
+                ) : String(viewDocModal.status).toUpperCase() === "HR_APPROVED" ? (
+                  isSuperAdmin ? (
+                    <>
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        style={{ color: "#fb7185", borderColor: "#5c2033" }}
+                        onClick={() => {
+                          const item = viewDocModal;
+                          setViewDocModal(null);
+                          promptDecision(item, "REJECTED");
+                        }}
+                      >
+                        Reject Request
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-primary"
+                        style={{
+                          background: "linear-gradient(135deg, #0284c7 0%, #00f0ff 100%)",
+                          color: "#040915",
+                          fontWeight: 700,
+                        }}
+                        onClick={() => {
+                          const item = viewDocModal;
+                          setViewDocModal(null);
+                          promptDecision(item, "APPROVED");
+                        }}
+                      >
+                        <ShieldCheck size={14} /> Confirm & Final Approve
+                      </button>
+                    </>
+                  ) : null
+                ) : null
+              ) : String(viewDocModal.status || "PENDING").toUpperCase() === "PENDING" && (
                 <>
                   <button
                     type="button"
@@ -580,13 +837,47 @@ export default function Approvals() {
 
       {decisionModal && (
         <Modal
-          title={`${decisionModal.status === "APPROVED" ? "Approve" : "Reject"} Request`}
-          subtitle={`Reviewing ${decisionModal.item.requestType} for ${
-            decisionModal.item.employee?.name || "Employee"
-          }`}
+          title={
+            decisionModal.status === "APPROVED"
+              ? decisionModal.item.category === "WFH" && decisionModal.item.status === "HR_APPROVED"
+                ? "Step 2: Confirm & Final Approve WFH"
+                : decisionModal.item.category === "WFH" && decisionModal.item.status === "PENDING"
+                ? "Step 1: HR Approve & Forward WFH"
+                : "Approve Request"
+              : "Reject Request"
+          }
+          subtitle={
+            decisionModal.item.category === "WFH" && decisionModal.item.status === "HR_APPROVED"
+              ? `Confirming final approval for ${decisionModal.item.employee?.name || "Employee"} (previously approved by HR)`
+              : `Reviewing ${decisionModal.item.requestType} for ${
+                  decisionModal.item.employee?.name || "Employee"
+                }`
+          }
           onClose={() => setDecisionModal(null)}
         >
           <form className="modal-form" onSubmit={submitDecision}>
+            {decisionModal.item.category === "WFH" && decisionModal.item.status === "HR_APPROVED" && (
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  background: "rgba(2, 132, 199, 0.15)",
+                  border: "1px solid rgba(0, 240, 255, 0.3)",
+                  color: "#38bdf8",
+                  fontSize: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 10,
+                }}
+              >
+                <ShieldCheck size={16} color="#00f0ff" />
+                <span>
+                  <b>Step 1 Passed:</b> Approved by HR. Confirming now will grant official WFH approval.
+                </span>
+              </div>
+            )}
+
             {decisionModal.item.isUrgent && (
               <div
                 style={{
@@ -599,6 +890,7 @@ export default function Approvals() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
+                  marginBottom: 10,
                 }}
               >
                 <span>🚨 <b>Urgent Emergency Request</b> with Document Proof</span>
@@ -664,17 +956,25 @@ export default function Approvals() {
                 style={
                   decisionModal.status === "REJECTED"
                     ? { color: "#fb7185", borderColor: "#5c2033" }
+                    : decisionModal.item.category === "WFH" && decisionModal.item.status === "HR_APPROVED"
+                    ? {
+                        background: "linear-gradient(135deg, #0284c7 0%, #00f0ff 100%)",
+                        color: "#040915",
+                        fontWeight: 700,
+                      }
                     : {}
                 }
                 disabled={deciding}
               >
                 {deciding
                   ? "Processing..."
-                  : `Confirm ${
-                      decisionModal.status === "APPROVED"
-                        ? "Approval"
-                        : "Rejection"
-                    }`}
+                  : decisionModal.status === "APPROVED"
+                  ? decisionModal.item.category === "WFH" && decisionModal.item.status === "HR_APPROVED"
+                    ? "Confirm Final Approval"
+                    : decisionModal.item.category === "WFH" && decisionModal.item.status === "PENDING"
+                    ? "Approve & Forward to Admin"
+                    : "Confirm Approval"
+                  : "Confirm Rejection"}
               </button>
             </div>
           </form>

@@ -16,6 +16,14 @@ import EmptyState from "../components/EmptyState";
 const arr = (d) =>
   Array.isArray(d) ? d : d?.admins || d?.users || d?.data || d?.items || [];
 
+const getMediaUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
+  const base = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+  const host = base.replace(/\/api\/?$/, "");
+  return `${host}${url.startsWith("/") ? url : `/${url}`}`;
+};
+
 export default function HRAdmins() {
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(true);
@@ -211,13 +219,21 @@ export default function HRAdmins() {
                     <tr key={x._id || x.id || i}>
                       <td>
                         <div className="person-cell">
-                          <div className="avatar avatar-small">
-                            {String(x.name || "?")
-                              .split(" ")
-                              .map((w) => w[0])
-                              .slice(0, 2)
-                              .join("")
-                              .toUpperCase()}
+                          <div className="avatar avatar-small" style={{ overflow: "hidden" }}>
+                            {x.avatar ? (
+                              <img
+                                src={getMediaUrl(x.avatar)}
+                                alt=""
+                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                              />
+                            ) : (
+                              String(x.name || "?")
+                                .split(" ")
+                                .map((w) => w[0])
+                                .slice(0, 2)
+                                .join("")
+                                .toUpperCase()
+                            )}
                           </div>
                           <b>{x.name || "HR Admin"}</b>
                         </div>

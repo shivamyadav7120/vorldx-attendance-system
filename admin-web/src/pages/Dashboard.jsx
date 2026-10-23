@@ -38,6 +38,14 @@ import EmptyState from "../components/EmptyState";
 import { useAuth } from "../context/AuthContext";
 import api, { errorMessage } from "../services/api";
 
+const getMediaUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
+  const base = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+  const host = base.replace(/\/api\/?$/, "");
+  return `${host}${url.startsWith("/") ? url : `/${url}`}`;
+};
+
 const istDate = (d = new Date()) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(d);
 
@@ -173,9 +181,9 @@ export default function Dashboard() {
   const firstName = user?.name ? user.name.split(" ")[0] : "Admin";
 
   const distributionData = [
-    { name: "Present", count: s.presentToday || 0, fill: "#22D3EE" },
+    { name: "Present", count: s.presentToday || 0, fill: "#00F0FF" },
     { name: "Late", count: s.lateToday || 0, fill: "#F59E0B" },
-    { name: "WFH", count: s.wfhToday || 0, fill: "#6366F1" },
+    { name: "WFH", count: s.wfhToday || 0, fill: "#0284C7" },
     { name: "Absent", count: s.absentToday || 0, fill: "#F43F5E" },
   ];
 
@@ -328,16 +336,16 @@ export default function Dashboard() {
                   >
                     <defs>
                       <linearGradient id="presentGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#22D3EE" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="#22D3EE" stopOpacity={0} />
+                        <stop offset="0%" stopColor="#00F0FF" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#00F0FF" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="absentGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#6366F1" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
+                        <stop offset="0%" stopColor="#0284C7" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#0284C7" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid
-                      stroke="#1E2A3F"
+                      stroke="rgba(56, 189, 248, 0.12)"
                       strokeDasharray="4 5"
                       vertical={false}
                     />
@@ -355,17 +363,18 @@ export default function Dashboard() {
                     />
                     <Tooltip
                       contentStyle={{
-                        background: "#151E32",
-                        border: "1px solid #2A3650",
+                        background: "rgba(10, 24, 48, 0.94)",
+                        border: "1px solid rgba(56, 189, 248, 0.25)",
                         borderRadius: 12,
-                        color: "#F1F5F9",
+                        color: "#F0F9FF",
                         fontSize: 12,
+                        boxShadow: "0 10px 25px rgba(0,0,0,0.5)",
                       }}
                     />
                     <Area
                       type="monotone"
                       dataKey="present"
-                      stroke="#22D3EE"
+                      stroke="#00F0FF"
                       strokeWidth={2.5}
                       fill="url(#presentGrad)"
                       name="Present"
@@ -373,7 +382,7 @@ export default function Dashboard() {
                     <Area
                       type="monotone"
                       dataKey="absent"
-                      stroke="#6366F1"
+                      stroke="#0284C7"
                       strokeWidth={2}
                       fill="url(#absentGrad)"
                       name="Absent"
@@ -485,8 +494,16 @@ export default function Dashboard() {
                         <tr key={req._id}>
                           <td>
                             <div className="person-cell">
-                              <div className="avatar avatar-small">
-                                {String(req.employee?.name || "?")[0].toUpperCase()}
+                              <div className="avatar avatar-small" style={{ overflow: "hidden" }}>
+                                {req.employee?.avatar ? (
+                                  <img
+                                    src={getMediaUrl(req.employee.avatar)}
+                                    alt=""
+                                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                  />
+                                ) : (
+                                  String(req.employee?.name || "?")[0].toUpperCase()
+                                )}
                               </div>
                               <div>
                                 <b>{req.employee?.name || "Employee"}</b>
@@ -612,8 +629,16 @@ export default function Dashboard() {
                       <tr key={e._id || e.id || i}>
                         <td>
                           <div className="person-cell">
-                            <div className="avatar avatar-small">
-                              {String(e.name || "?")[0].toUpperCase()}
+                            <div className="avatar avatar-small" style={{ overflow: "hidden" }}>
+                              {e.avatar ? (
+                                <img
+                                  src={getMediaUrl(e.avatar)}
+                                  alt=""
+                                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                />
+                              ) : (
+                                String(e.name || "?")[0].toUpperCase()
+                              )}
                             </div>
                             <div>
                               <b>{e.name || "Employee"}</b>
@@ -723,9 +748,9 @@ export default function Dashboard() {
                     <CartesianGrid stroke="#1E2A3F" strokeDasharray="4 5" vertical={false} />
                     <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#64748B", fontSize: 11 }} />
                     <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "#64748B", fontSize: 11 }} />
-                    <Tooltip contentStyle={{ background: "#151E32", border: "1px solid #2A3650", borderRadius: 12, color: "#F1F5F9" }} />
-                    <Area type="monotone" dataKey="present" stroke="#22D3EE" strokeWidth={2.5} fill="url(#hrPresentGrad)" />
-                    <Area type="monotone" dataKey="absent" stroke="#6366F1" strokeWidth={2} fill="transparent" />
+                    <Tooltip contentStyle={{ background: "rgba(10, 24, 48, 0.94)", border: "1px solid rgba(56, 189, 248, 0.25)", borderRadius: 12, color: "#F0F9FF" }} />
+                    <Area type="monotone" dataKey="present" stroke="#00F0FF" strokeWidth={2.5} fill="url(#hrPresentGrad)" />
+                    <Area type="monotone" dataKey="absent" stroke="#0284C7" strokeWidth={2} fill="transparent" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -819,8 +844,16 @@ export default function Dashboard() {
                       <tr key={att._id || idx}>
                         <td>
                           <div className="person-cell">
-                            <div className="avatar avatar-small">
-                              {String(att.employee?.name || att.name || "?")[0].toUpperCase()}
+                            <div className="avatar avatar-small" style={{ overflow: "hidden" }}>
+                              {att.employee?.avatar ? (
+                                <img
+                                  src={getMediaUrl(att.employee.avatar)}
+                                  alt=""
+                                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                />
+                              ) : (
+                                String(att.employee?.name || att.name || "?")[0].toUpperCase()
+                              )}
                             </div>
                             <div>
                               <b>{att.employee?.name || att.name || "Employee"}</b>

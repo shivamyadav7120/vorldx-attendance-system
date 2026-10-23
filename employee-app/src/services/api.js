@@ -6,8 +6,8 @@ export const TOKEN_KEY = "vorldx_emp_token";
 export const USER_KEY = "vorldx_emp_user";
 export const API_URL_KEY = "vorldx_api_base_url";
 
-// Laptop ka Wi-Fi IP: real Android/iOS phone ke liye
-export const CURRENT_HOST_IP = "10.34.107.125";
+
+export const CURRENT_HOST_IP = "192.168.1.61";
 
 const DEFAULT_API_URL =
   Platform.OS === "web"
@@ -21,8 +21,8 @@ export async function getBaseUrl() {
 
   if (saved) {
     const cleaned = saved.trim().replace(/\/+$/, "");
-    // Stale IP auto-migration: if old IP 192.168.1.83 was cached, update to current host IP
-    if (cleaned.includes("192.168.1.83")) {
+
+    if (cleaned.includes("192.168.1.83") || cleaned.includes("10.34.107.125")) {
       currentBaseUrl = DEFAULT_API_URL;
       await AsyncStorage.setItem(API_URL_KEY, currentBaseUrl);
     } else {
@@ -41,6 +41,13 @@ export async function setBaseUrl(url) {
   return currentBaseUrl;
 }
 
+export function getFullMediaUrl(path) {
+  if (!path) return "";
+  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) return path;
+  const host = currentBaseUrl.replace(/\/api\/?$/, "");
+  return `${host}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 export async function request(path, options = {}) {
   const baseUrl = await getBaseUrl();
   const token = await AsyncStorage.getItem(TOKEN_KEY);
@@ -56,7 +63,7 @@ export async function request(path, options = {}) {
 
   const url = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
 
-  // 10-second request timeout to quickly detect network dropouts
+
   const controller = new AbortController();
   const timeoutMs = options.timeout || 10000;
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -151,9 +158,10 @@ export default {
     });
   },
 
-  async checkOut() {
+  async checkOut(payload = {}) {
     return request("/attendance/check-out", {
       method: "PATCH",
+      body: JSON.stringify(payload),
     });
   },
 
@@ -162,7 +170,7 @@ export default {
   },
 
   async submitWfhRequest(payload) {
-    // Supports both old signature (startDate, endDate, reason) and object payload
+
     let body;
     if (typeof payload === "string") {
       body = {
@@ -201,6 +209,15 @@ export default {
     });
   },
 
+  async uploadAvatar(avatarData) {
+    return request("/auth/avatar", {
+      method: "POST",
+      body: JSON.stringify({ avatarData }),
+    });
+  },
+
+  getFullMediaUrl,
+
   async changePassword(currentPassword, newPassword) {
     return request("/auth/change-password", {
       method: "PATCH",
@@ -221,6 +238,22 @@ export default {
 
   async cancelLeave(id) {
     return request(`/leave/${id}/cancel`, {
+      method: "PATCH",
+    });
+  },
+
+  async getNotifications() {
+    return request("/notifications");
+  },
+
+  async markNotificationRead(id) {
+    return request(`/notifications/${id}/read`, {
+      method: "PATCH",
+    });
+  },
+
+  async markAllNotificationsRead() {
+    return request("/notifications/read-all", {
       method: "PATCH",
     });
   },

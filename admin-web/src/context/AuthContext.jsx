@@ -145,6 +145,22 @@ export function AuthProvider({ children }) {
     return payload;
   }
 
+  function updateUser(partial) {
+    if (!partial || typeof partial !== "object") return;
+    setUser((prev) => {
+      const next = { ...(prev || {}), ...partial };
+      try {
+        const store = localStorage.getItem(TOKEN_KEY)
+          ? localStorage
+          : sessionStorage;
+        store.setItem(USER_KEY, JSON.stringify(next));
+      } catch (e) {
+        console.error("Failed to store updated user:", e);
+      }
+      return next;
+    });
+  }
+
   function logout() {
     clearSession();
     setUser(null);
@@ -155,6 +171,7 @@ export function AuthProvider({ children }) {
     loading,
     login,
     logout,
+    updateUser,
     isSuperAdmin: user?.role === "SUPER_ADMIN",
     isHRAdmin: user?.role === "HR_ADMIN",
     isEmployee: user?.role === "EMPLOYEE",

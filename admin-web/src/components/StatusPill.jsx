@@ -2,7 +2,11 @@ import React from "react";
 
 export default function StatusPill({ status = "Pending", label }) {
   const key = String(status).toLowerCase().replaceAll("_", " ");
-  const displayLabel = label || key.replace(/\b\w/g, (c) => c.toUpperCase());
+  const displayLabel =
+    label ||
+    (key === "hr approved"
+      ? "HR Approved (Awaiting Admin)"
+      : key.replace(/\b\w/g, (c) => c.toUpperCase()));
 
   const cls = [
     "present",
@@ -29,7 +33,7 @@ export default function StatusPill({ status = "Pending", label }) {
         "half day",
       ].includes(key)
     ? "warning"
-    : ["office", "wfh", "qr"].includes(key)
+    : ["office", "wfh", "qr", "hr approved"].includes(key)
     ? "info"
     : "neutral";
 

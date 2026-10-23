@@ -14,7 +14,7 @@ const isValidDate = (value) =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   !Number.isNaN(Date.parse(value));
 
-// Helper to generate array of dates between start and end (inclusive)
+
 function getDatesInRange(startStr, endStr) {
   const dates = [];
   const curr = new Date(startStr);
@@ -26,7 +26,7 @@ function getDatesInRange(startStr, endStr) {
   return dates;
 }
 
-// Helper to save base64 document to uploads/documents
+
 function saveDocumentBase64(documentData, originalName = "proof.pdf") {
   if (!documentData || typeof documentData !== "string") return null;
 
@@ -72,9 +72,9 @@ function saveDocumentBase64(documentData, originalName = "proof.pdf") {
   }
 }
 
-// ==========================================
-// UPLOAD DOCUMENT ENDPOINT (STANDALONE)
-// ==========================================
+
+
+
 router.post(
   "/wfh/upload-document",
   authenticate,
@@ -108,9 +108,9 @@ router.post(
   }
 );
 
-// ==========================================
-// EMPLOYEE — SUBMIT WFH REQUEST
-// ==========================================
+
+
+
 router.post(
   "/wfh",
   authenticate,
@@ -140,7 +140,7 @@ router.post(
 
       const dates = getDatesInRange(startDate, endDate);
 
-      // TYPE 1: STANDARD WFH - MAX 5 DAYS RULE
+
       if (normalizedType === "STANDARD" && dates.length > 5) {
         return res.status(400).json({
           success: false,
@@ -152,7 +152,7 @@ router.post(
       let finalDocName = documentName;
       let finalDocType = documentType;
 
-      // Process base64 file data if attached
+
       if (documentData) {
         const saved = saveDocumentBase64(documentData, documentName || "wfh_proof.pdf");
         if (saved) {
@@ -162,7 +162,7 @@ router.post(
         }
       }
 
-      // TYPE 2: URGENT WFH - MANDATORY DOCUMENT PROOF RULE
+
       if (normalizedType === "URGENT" && !finalDocUrl) {
         return res.status(400).json({
           success: false,
@@ -182,10 +182,10 @@ router.post(
         });
       }
 
-      // Check overlapping WFH requests (PENDING or APPROVED)
+
       const existingWfh = await WfhRequest.findOne({
         employee: employee._id,
-        status: { $in: ["PENDING", "APPROVED"] },
+        status: { $in: ["PENDING", "HR_APPROVED", "APPROVED"] },
         startDate: { $lte: endDate },
         endDate: { $gte: startDate },
       });
@@ -197,7 +197,7 @@ router.post(
         });
       }
 
-      // Check overlapping Leave requests (APPROVED)
+
       const existingLeave = await LeaveRequest.findOne({
         employee: employee._id,
         status: "APPROVED",
@@ -252,9 +252,9 @@ router.post(
   }
 );
 
-// ==========================================
-// EMPLOYEE — MY WFH REQUESTS
-// ==========================================
+
+
+
 router.get(
   "/wfh/my",
   authenticate,
@@ -264,6 +264,8 @@ router.get(
       const requests = employee
         ? await WfhRequest.find({ employee: employee._id })
             .populate("decidedBy", "name email role")
+            .populate("hrApprovedBy", "name email role")
+            .populate("adminApprovedBy", "name email role")
             .sort({ createdAt: -1 })
             .limit(100)
             .lean()
@@ -276,9 +278,9 @@ router.get(
   }
 );
 
-// ==========================================
-// WFH AVAILABILITY CHECK FOR A GIVEN DATE
-// ==========================================
+
+
+
 router.get(
   "/wfh/availability",
   authenticate,
@@ -315,9 +317,9 @@ router.get(
   }
 );
 
-// ==========================================
-// ADMIN — LIST ALL WFH REQUESTS
-// ==========================================
+
+
+
 router.get(
   "/wfh",
   authenticate,
@@ -330,13 +332,15 @@ router.get(
       }
 
       const requests = await WfhRequest.find(filter)
-        .populate("employee", "employeeId name email department designation user")
+        .populate("employee", "employeeId name email department designation user avatar")
         .populate("decidedBy", "name email role")
+        .populate("hrApprovedBy", "name email role")
+        .populate("adminApprovedBy", "name email role")
         .sort({ createdAt: -1 })
         .limit(500)
         .lean();
 
-      // Permission check: HR Admin can only view Employee requests
+
       let filtered = requests;
       if (req.user.role === "HR_ADMIN") {
         const userIds = requests.map((r) => r.employee?.user).filter(Boolean);
@@ -356,9 +360,9 @@ router.get(
   }
 );
 
-// ==========================================
-// ADMIN — APPROVE OR REJECT WFH REQUEST
-// ==========================================
+
+
+
 router.patch(
   "/wfh/:id/status",
   authenticate,
@@ -375,7 +379,10 @@ router.patch(
         });
       }
 
-      const request = await WfhRequest.findById(req.params.id).populate("employee");
+      const request = await WfhRequest.findById(req.params.id)
+        .populate("employee")
+        .populate("hrApprovedBy", "name email role")
+        .populate("adminApprovedBy", "name email role");
 
       if (!request) {
         return res.status(404).json({
@@ -384,14 +391,14 @@ router.patch(
         });
       }
 
-      if (request.status !== "PENDING") {
+      if (["APPROVED", "REJECTED", "CANCELLED"].includes(request.status)) {
         return res.status(409).json({
           success: false,
           message: `This request has already been ${request.status.toLowerCase()}`,
         });
       }
 
-      // HR Admin role restriction
+
       if (req.user.role === "HR_ADMIN" && request.employee?.user) {
         const targetUser = await User.findById(request.employee.user);
         if (targetUser && targetUser.role !== "EMPLOYEE") {
@@ -402,43 +409,98 @@ router.patch(
         }
       }
 
-      if (status === "APPROVED") {
-        const isUrgent = request.wfhType === "URGENT";
-        const isSuperAdmin = req.user.role === "SUPER_ADMIN";
+      let finalStatus;
+      let successMessage;
 
-        if (!isUrgent && !isSuperAdmin) {
-          const policy = await getPolicy();
-          const maxLimit = policy.maxWfhPerDay || 5;
-          const dates = getDatesInRange(request.startDate, request.endDate);
+      if (req.user.role === "HR_ADMIN") {
+        if (request.status !== "PENDING") {
+          return res.status(409).json({
+            success: false,
+            message: `This request is currently ${request.status}. HR can only review initial pending requests.`,
+          });
+        }
 
-          for (const date of dates) {
-            const approvedCount = await WfhRequest.countDocuments({
-              _id: { $ne: request._id },
-              status: "APPROVED",
-              wfhType: "STANDARD",
-              startDate: { $lte: date },
-              endDate: { $gte: date },
+        if (status === "APPROVED") {
+          finalStatus = "HR_APPROVED";
+          request.status = "HR_APPROVED";
+          request.hrApprovedBy = req.user._id;
+          request.hrApprovedAt = new Date();
+          request.hrComment = decisionComment;
+          successMessage = "WFH request approved by HR and forwarded to Super Admin for final confirmation.";
+        } else {
+          finalStatus = "REJECTED";
+          request.status = "REJECTED";
+          request.decidedBy = req.user._id;
+          request.decidedAt = new Date();
+          request.decisionComment = decisionComment;
+          successMessage = "WFH request rejected by HR.";
+        }
+      } else if (req.user.role === "SUPER_ADMIN") {
+        if (status === "APPROVED") {
+
+          if (request.status === "PENDING") {
+            return res.status(400).json({
+              success: false,
+              message: "Super Admin can only confirm and approve WFH requests after they have been approved by HR first.",
             });
+          }
 
-            if (approvedCount >= maxLimit) {
-              return res.status(409).json({
-                success: false,
-                message: `Cannot approve request: daily WFH limit of ${maxLimit} employees has already been reached for ${date}`,
+          if (request.status !== "HR_APPROVED") {
+            return res.status(409).json({
+              success: false,
+              message: `Cannot approve request with status: ${request.status}. It must be HR_APPROVED first.`,
+            });
+          }
+
+
+          const isUrgent = request.wfhType === "URGENT";
+          if (!isUrgent) {
+            const policy = await getPolicy();
+            const maxLimit = policy.maxWfhPerDay || 5;
+            const dates = getDatesInRange(request.startDate, request.endDate);
+
+            for (const date of dates) {
+              const approvedCount = await WfhRequest.countDocuments({
+                _id: { $ne: request._id },
+                status: "APPROVED",
+                wfhType: "STANDARD",
+                startDate: { $lte: date },
+                endDate: { $gte: date },
               });
+
+              if (approvedCount >= maxLimit) {
+                return res.status(409).json({
+                  success: false,
+                  message: `Cannot confirm approval: daily WFH limit of ${maxLimit} employees has already been reached for ${date}`,
+                });
+              }
             }
           }
+
+          finalStatus = "APPROVED";
+          request.status = "APPROVED";
+          request.adminApprovedBy = req.user._id;
+          request.adminApprovedAt = new Date();
+          request.adminComment = decisionComment;
+          request.decidedBy = req.user._id;
+          request.decidedAt = new Date();
+          request.decisionComment = decisionComment;
+          successMessage = "WFH request confirmed and fully approved by Super Admin.";
+        } else {
+          finalStatus = "REJECTED";
+          request.status = "REJECTED";
+          request.decidedBy = req.user._id;
+          request.decidedAt = new Date();
+          request.decisionComment = decisionComment;
+          successMessage = "WFH request rejected by Super Admin.";
         }
       }
 
-      request.status = status;
-      request.decisionComment = decisionComment;
-      request.decidedBy = req.user._id;
-      request.decidedAt = new Date();
       await request.save();
 
       await logAction({
         actor: req.user,
-        action: `WFH_${status}`,
+        action: `WFH_${finalStatus}`,
         targetType: "WfhRequest",
         targetId: request._id,
         details: {
@@ -448,13 +510,14 @@ router.patch(
           wfhType: request.wfhType,
           documentUrl: request.documentUrl || null,
           decisionComment,
+          status: finalStatus,
         },
         ipAddress: req.ip,
       });
 
       return res.json({
         success: true,
-        message: `WFH request ${status.toLowerCase()} successfully`,
+        message: successMessage,
         request,
       });
     } catch (error) {
@@ -463,9 +526,9 @@ router.patch(
   }
 );
 
-// ==========================================
-// EMPLOYEE — CANCEL OWN PENDING WFH REQUEST
-// ==========================================
+
+
+
 router.patch(
   "/wfh/:id/cancel",
   authenticate,

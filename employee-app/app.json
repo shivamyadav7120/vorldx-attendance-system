@@ -6,19 +6,27 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
-    "splash": {
-      "backgroundColor": "#081b2e"
-    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vorldx.employee",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow VorldX to use your camera to scan office attendance QR codes and capture profile photos.",
+        "NSPhotoLibraryUsageDescription": "Allow VorldX to access your photo library to select and upload your profile picture.",
+        "NSFaceIDUsageDescription": "Allow VorldX to authenticate your identity using Face ID for secure employee login."
+      }
     },
     "android": {
+      "package": "com.vorldx.employee",
       "adaptiveIcon": {
         "backgroundColor": "#081b2e"
       },
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE"
       ]
     },
     "plugins": [
@@ -28,8 +36,22 @@
           "cameraPermission": "Allow VorldX to use your camera to scan office QR codes for attendance."
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow VorldX to access your photo library to choose a profile photo.",
+          "cameraPermission": "Allow VorldX to capture photos for your profile photo."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow VorldX to use Face ID for secure employee login."
+        }
+      ],
       "expo-font",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-asset"
     ]
   }
 }

@@ -357,13 +357,21 @@ export default function Attendance() {
                   <tr key={x._id || x.id || i}>
                     <td>
                       <div className="person-cell">
-                        <div className="avatar avatar-small">
-                          {String(x.employee?.name || x.name || "?")
-                            .split(" ")
-                            .map((w) => w[0])
-                            .slice(0, 2)
-                            .join("")
-                            .toUpperCase()}
+                        <div className="avatar avatar-small" style={{ overflow: "hidden" }}>
+                          {x.employee?.avatar ? (
+                            <img
+                              src={x.employee.avatar.startsWith("http") ? x.employee.avatar : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api\/?$/, "")}${x.employee.avatar.startsWith("/") ? x.employee.avatar : `/${x.employee.avatar}`}`}
+                              alt=""
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            />
+                          ) : (
+                            String(x.employee?.name || x.name || "?")
+                              .split(" ")
+                              .map((w) => w[0])
+                              .slice(0, 2)
+                              .join("")
+                              .toUpperCase()
+                          )}
                         </div>
                         <div>
                           <b>{x.employee?.name || x.name || "Employee"}</b>

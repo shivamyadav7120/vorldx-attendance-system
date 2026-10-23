@@ -13,13 +13,14 @@ const hrAdminView = (user, employee) => ({
   email: user.email,
   role: user.role,
   active: user.active,
+  avatar: employee?.avatar || user?.avatar || "",
   status: user.active ? "Active" : "Inactive",
   employeeId: employee?.employeeId ?? null,
   department: employee?.department ?? "Human Resources",
   designation: employee?.designation ?? "HR Admin",
 });
 
-// List HR Admins (Super Admin only)
+
 router.get(
   "/hr-admins",
   authenticate,
@@ -33,7 +34,7 @@ router.get(
       const employees = await Employee.find({
         user: { $in: users.map((user) => user._id) },
       })
-        .select("user employeeId department designation")
+        .select("user employeeId department designation avatar")
         .lean();
 
       const employeeMap = new Map(
@@ -52,7 +53,7 @@ router.get(
   }
 );
 
-// Create HR Admin (Super Admin only)
+
 router.post(
   "/hr-admins",
   authenticate,
@@ -112,7 +113,7 @@ router.post(
   }
 );
 
-// Update HR Admin (Super Admin only)
+
 router.put(
   "/hr-admins/:id",
   authenticate,
@@ -197,7 +198,7 @@ router.put(
   }
 );
 
-// Deactivate HR Admin (Super Admin only)
+
 router.patch(
   "/hr-admins/:id/deactivate",
   authenticate,
