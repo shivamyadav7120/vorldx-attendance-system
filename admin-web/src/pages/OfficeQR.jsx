@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { Link } from "react-router-dom";
 import {
   QrCode,
   RefreshCw,
@@ -7,12 +8,15 @@ import {
   Monitor,
   Copy,
   Check,
+  Sliders,
+  CalendarCheck,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import api, { errorMessage } from "../services/api";
 
 export default function OfficeQR() {
   const [session, setSession] = useState(null);
+  const [policy, setPolicy] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [seconds, setSeconds] = useState(0);
@@ -21,6 +25,17 @@ export default function OfficeQR() {
 
   const autoRefreshRef = useRef(autoRefresh);
   autoRefreshRef.current = autoRefresh;
+
+  async function fetchPolicy() {
+    try {
+      const { data } = await api.get("/policies/attendance");
+      if (data?.policy) {
+        setPolicy(data.policy);
+      }
+    } catch (e) {
+      console.warn("Could not load policy details:", e);
+    }
+  }
 
   async function createSession(isAuto = false) {
     if (!isAuto) setBusy(true);
@@ -40,7 +55,7 @@ export default function OfficeQR() {
         ...s,
         token,
         expiresAt: s.expiresAt,
-        validitySeconds: s.validitySeconds || 18,
+        validitySeconds: s.validitySeconds || policy?.qrExpirySeconds || 18,
       });
 
       const initialSec = Math.max(
@@ -57,6 +72,7 @@ export default function OfficeQR() {
   }
 
   useEffect(() => {
+    fetchPolicy();
     createSession(false);
   }, []);
 
@@ -99,17 +115,25 @@ export default function OfficeQR() {
           <div className="eyebrow">OFFICE CHECK-IN</div>
           <h1>Dynamic Office QR</h1>
           <p>
-            Secure, 18-second rolling QR tokens for employee office attendance.
+            Secure, {validityTotal}-second rolling QR tokens for employee office attendance.
           </p>
         </div>
         <div className="heading-actions">
+          <Link
+            to="/settings"
+            className="button button-secondary"
+            title="Configure timings and QR expiry in Settings"
+          >
+            <Sliders size={16} />
+            <span>Configure Policy</span>
+          </Link>
           <label className="checkbox-toggle">
             <input
               type="checkbox"
               checked={autoRefresh}
               onChange={(e) => setAutoRefresh(e.target.checked)}
             />
-            <span>Auto-refresh (18s)</span>
+            <span>Auto-refresh ({validityTotal}s)</span>
           </label>
           <button
             className="button button-primary"
@@ -119,6 +143,46 @@ export default function OfficeQR() {
             <RefreshCw size={16} className={busy ? "spin" : ""} />
             {busy ? "Generating…" : "Refresh QR now"}
           </button>
+        </div>
+      </div>
+
+      {/* Office Timings & Policy Banner */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "12px",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "12px 18px",
+          marginBottom: "18px",
+          backgroundColor: "#0d2238",
+          borderRadius: "10px",
+          border: "1px solid #1a3c61",
+          color: "#b0c9e6",
+          fontSize: "13px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <CalendarCheck size={18} color="#23c8f5" />
+          <span>
+            <strong style={{ color: "#ffffff" }}>Office Shift:</strong>{" "}
+            {policy?.officeStartTime || "09:00"} — {policy?.officeEndTime || "18:00"} IST
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <Clock3 size={18} color="#f5a623" />
+          <span>
+            <strong style={{ color: "#ffffff" }}>Check-in Cutoff:</strong>{" "}
+            {policy?.checkInCutoffTime || "09:30"} IST
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <QrCode size={18} color="#23c8f5" />
+          <span>
+            <strong style={{ color: "#ffffff" }}>QR Validity:</strong>{" "}
+            {validityTotal}s Rolling
+          </span>
         </div>
       </div>
 
@@ -233,10 +297,10 @@ export default function OfficeQR() {
             <h3>Military-Grade Dynamic QR</h3>
             <p>
               Static QR codes allow cheating and photo sharing. VorldX generates
-              cryptographically signed 18-second rolling tokens.
+              cryptographically signed {validityTotal}-second rolling tokens.
             </p>
             <ul>
-              <li>18-second rolling validity</li>
+              <li>{validityTotal}-second rolling validity</li>
               <li>Single-use consumption prevents replay</li>
               <li>Location & device identity verified</li>
             </ul>

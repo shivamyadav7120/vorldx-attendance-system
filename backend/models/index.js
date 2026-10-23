@@ -285,6 +285,7 @@ const attendancePolicySchema = new mongoose.Schema(
     key: { type: String, default: "default", unique: true },
     officeStartTime: { type: String, default: "09:00" }, // 9:00 AM
     checkInCutoffTime: { type: String, default: "09:30" }, // 9:30 AM cutoff
+    officeEndTime: { type: String, default: "18:00" }, // 6:00 PM closing / last hour
     lateArrivalPolicy: {
       type: String,
       enum: ["MARK_LATE", "MARK_ABSENT", "MARK_HALF_DAY"],

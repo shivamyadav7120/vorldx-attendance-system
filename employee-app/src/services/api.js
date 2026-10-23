@@ -56,11 +56,18 @@ export async function request(path, options = {}) {
 
   const url = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
 
+  // 10-second request timeout to quickly detect network dropouts
+  const controller = new AbortController();
+  const timeoutMs = options.timeout || 10000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const response = await fetch(url, {
       ...options,
       headers,
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     const data = await response.json().catch(() => ({}));
 
@@ -78,13 +85,25 @@ export async function request(path, options = {}) {
 
     return data;
   } catch (error) {
+    clearTimeout(timeoutId);
+
+    if (error.name === "AbortError") {
+      const err = new Error("Network request timed out. Please check your connection.");
+      err.isNetworkError = true;
+      throw err;
+    }
+
     if (
       error.message === "Network request failed" ||
-      error.message === "Failed to fetch"
+      error.message === "Failed to fetch" ||
+      error.message?.includes("Network") ||
+      error.code === "ECONNABORTED"
     ) {
-      throw new Error(
-        `Unable to connect to backend at ${baseUrl}. Check your Wi-Fi, server and API URL.`
+      const err = new Error(
+        `Unable to reach backend at ${baseUrl}. Check your Wi-Fi, server and API URL.`
       );
+      err.isNetworkError = true;
+      throw err;
     }
 
     throw error;

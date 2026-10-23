@@ -21,6 +21,7 @@ export default function Settings() {
   const [policy, setPolicy] = useState({
     officeStartTime: "09:00",
     checkInCutoffTime: "09:30",
+    officeEndTime: "18:00",
     lateArrivalPolicy: "MARK_LATE",
     maxWfhPerDay: 5,
     qrExpirySeconds: 18,
@@ -214,6 +215,22 @@ export default function Settings() {
                     setPolicy({
                       ...policy,
                       checkInCutoffTime: e.target.value,
+                    })
+                  }
+                  required
+                />
+              </label>
+
+              <label>
+                Office Closing / Last Hour (HH:MM)
+                <input
+                  type="time"
+                  disabled={!isSuperAdmin || busyPolicy}
+                  value={policy.officeEndTime || "18:00"}
+                  onChange={(e) =>
+                    setPolicy({
+                      ...policy,
+                      officeEndTime: e.target.value,
                     })
                   }
                   required

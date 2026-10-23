@@ -31,6 +31,7 @@ router.put(
       const {
         officeStartTime,
         checkInCutoffTime,
+        officeEndTime,
         lateArrivalPolicy,
         maxWfhPerDay,
         qrExpirySeconds,
@@ -45,6 +46,9 @@ router.put(
       }
       if (checkInCutoffTime && /^([01]\d|2[0-3]):[0-5]\d$/.test(checkInCutoffTime)) {
         updates.checkInCutoffTime = checkInCutoffTime;
+      }
+      if (officeEndTime && /^([01]\d|2[0-3]):[0-5]\d$/.test(officeEndTime)) {
+        updates.officeEndTime = officeEndTime;
       }
       if (["MARK_LATE", "MARK_ABSENT", "MARK_HALF_DAY"].includes(lateArrivalPolicy)) {
         updates.lateArrivalPolicy = lateArrivalPolicy;

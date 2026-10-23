@@ -8,6 +8,7 @@ export const DEFAULT_POLICY = {
   key: "default",
   officeStartTime: "09:00",
   checkInCutoffTime: "09:30",
+  officeEndTime: "18:00",
   lateArrivalPolicy: "MARK_LATE",
   maxWfhPerDay: 5,
   qrExpirySeconds: 18,

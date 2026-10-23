@@ -93,19 +93,61 @@ export default function DashboardScreen({ onNavigate }) {
     try {
       const res = await api.checkInOffice(token);
       setScannerOpen(false);
+      setScanning(false);
       Alert.alert("Check-In Successful", res.message || "Office check-in recorded successfully!");
       loadDashboardData();
     } catch (err) {
-      Alert.alert(
-        "Verification Failed",
-        err.message || "Invalid or expired QR code. Please scan again.",
-        [
-          { text: "Retry", onPress: () => setScanning(false) },
-          { text: "Close", onPress: () => setScannerOpen(false), style: "cancel" },
-        ]
-      );
-    } finally {
-      setScanning(false);
+      const isNetwork =
+        err.isNetworkError ||
+        err.message?.toLowerCase().includes("network") ||
+        err.message?.toLowerCase().includes("unable to reach") ||
+        err.message?.toLowerCase().includes("unable to connect") ||
+        err.message?.toLowerCase().includes("timed out") ||
+        err.message?.toLowerCase().includes("failed to fetch");
+
+      if (isNetwork) {
+        Alert.alert(
+          "Network Disconnected",
+          "Your internet or office Wi-Fi connection was lost while verifying the QR code. Please check your Wi-Fi or mobile data and scan again.",
+          [
+            {
+              text: "Retry Now",
+              onPress: () => {
+                setScanning(false);
+                handleScanQr(token);
+              },
+            },
+            {
+              text: "Scan Fresh QR",
+              onPress: () => setScanning(false),
+            },
+            {
+              text: "Cancel",
+              onPress: () => {
+                setScanning(false);
+                setScannerOpen(false);
+              },
+              style: "cancel",
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          "Verification Failed",
+          err.message || "Invalid or expired QR code. Please scan again.",
+          [
+            { text: "Scan Again", onPress: () => setScanning(false) },
+            {
+              text: "Close",
+              onPress: () => {
+                setScanning(false);
+                setScannerOpen(false);
+              },
+              style: "cancel",
+            },
+          ]
+        );
+      }
     }
   }
 
