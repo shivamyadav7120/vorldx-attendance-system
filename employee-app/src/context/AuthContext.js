@@ -18,7 +18,7 @@ export function AuthProvider({ children }) {
 
         if (storedToken && storedUser) {
           setUser(JSON.parse(storedUser));
-          // Verify with server in background
+          
           api.getMe().then((res) => {
             if (res.user) {
               setUser(res.user);
@@ -38,6 +38,38 @@ export function AuthProvider({ children }) {
 
   async function login(email, password) {
     const data = await api.login(email, password);
+    const token = data.token;
+    const currentUser = data.user;
+    const currentEmployee = data.employee;
+
+    if (!token) throw new Error("No token returned by server");
+
+    await AsyncStorage.setItem(TOKEN_KEY, token);
+    await AsyncStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+
+    setUser(currentUser);
+    setEmployee(currentEmployee);
+    return data;
+  }
+
+  async function loginWithOtp(phone, otp) {
+    const data = await api.loginWithOtp(phone, otp);
+    const token = data.token;
+    const currentUser = data.user;
+    const currentEmployee = data.employee;
+
+    if (!token) throw new Error("No token returned by server");
+
+    await AsyncStorage.setItem(TOKEN_KEY, token);
+    await AsyncStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+
+    setUser(currentUser);
+    setEmployee(currentEmployee);
+    return data;
+  }
+
+  async function registerAndLogin(payload) {
+    const data = await api.completeRegistration(payload);
     const token = data.token;
     const currentUser = data.user;
     const currentEmployee = data.employee;
@@ -86,7 +118,7 @@ export function AuthProvider({ children }) {
     const { token } = await biometricService.loginWithBiometrics();
     await AsyncStorage.setItem(TOKEN_KEY, token);
 
-    // Fetch fresh user profile with biometric session token
+    
     const res = await api.getMe();
     if (!res?.user) {
       throw new Error("Failed to verify user profile. Please log in with password.");
@@ -121,6 +153,8 @@ export function AuthProvider({ children }) {
         employee,
         loading,
         login,
+        loginWithOtp,
+        registerAndLogin,
         loginWithBiometrics,
         enableBiometric,
         disableBiometric,

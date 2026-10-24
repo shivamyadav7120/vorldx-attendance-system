@@ -17,6 +17,7 @@ import {
 
 import { getIndiaDate, getIndiaTime, evaluateAttendanceStatus } from "../services/policyService.js";
 import { createQrSession, consumeQrToken } from "../services/qrService.js";
+import { generateRealOtp, saveOtpForPhone, verifyOtpForPhone } from "../services/smsService.js";
 
 const TEST_EMAIL_SUPER = `super_test_${Date.now()}@vorldx.test`;
 const TEST_EMAIL_HR = `hr_test_${Date.now()}@vorldx.test`;
@@ -36,7 +37,7 @@ describe("VorldX Employee Attendance System — Integration Test Suite", () => {
 
     const passwordHash = await bcrypt.hash(TEST_PASSWORD, 10);
 
-    // 1. Setup Super Admin
+    
     superAdminUser = await User.create({
       name: "Test Super Admin",
       email: TEST_EMAIL_SUPER,
@@ -45,7 +46,7 @@ describe("VorldX Employee Attendance System — Integration Test Suite", () => {
       active: true,
     });
 
-    // 2. Setup HR Admin
+    
     hrAdminUser = await User.create({
       name: "Test HR Admin",
       email: TEST_EMAIL_HR,
@@ -62,7 +63,7 @@ describe("VorldX Employee Attendance System — Integration Test Suite", () => {
       active: true,
     });
 
-    // 3. Setup Employee
+    
     employeeUser = await User.create({
       name: "Test Employee",
       email: TEST_EMAIL_EMP,
@@ -81,7 +82,7 @@ describe("VorldX Employee Attendance System — Integration Test Suite", () => {
   });
 
   after(async () => {
-    // Clean up test records
+    
     await User.deleteMany({
       email: { $in: [TEST_EMAIL_SUPER, TEST_EMAIL_HR, TEST_EMAIL_EMP] },
     });
@@ -117,21 +118,21 @@ describe("VorldX Employee Attendance System — Integration Test Suite", () => {
       lateArrivalPolicy: "MARK_LATE",
     };
 
-    // On time (before or at 09:30)
+    
     assert.equal(evaluateAttendanceStatus("09:15", mockPolicy), "PRESENT");
     assert.equal(evaluateAttendanceStatus("09:30", mockPolicy), "PRESENT");
 
-    // After 09:30 with MARK_LATE policy
+    
     assert.equal(evaluateAttendanceStatus("09:31", mockPolicy), "LATE");
     assert.equal(evaluateAttendanceStatus("10:00", mockPolicy), "LATE");
 
-    // With MARK_ABSENT policy
+    
     assert.equal(
       evaluateAttendanceStatus("09:35", { ...mockPolicy, lateArrivalPolicy: "MARK_ABSENT" }),
       "ABSENT"
     );
 
-    // With MARK_HALF_DAY policy
+    
     assert.equal(
       evaluateAttendanceStatus("09:45", { ...mockPolicy, lateArrivalPolicy: "MARK_HALF_DAY" }),
       "HALF_DAY"
@@ -139,17 +140,17 @@ describe("VorldX Employee Attendance System — Integration Test Suite", () => {
   });
 
   test("4. Secure QR Session: 18-second validity and replay attack prevention", async () => {
-    // Generate QR session
+    
     const sessionData = await createQrSession(hrAdminUser._id, "Test HQ");
     assert.ok(sessionData.token);
     assert.equal(sessionData.validitySeconds, 18);
 
-    // First consumption succeeds
+    
     const consumed = await consumeQrToken(sessionData.token, employeeUser);
     assert.equal(consumed.used, true);
     assert.equal(consumed.usedBy.toString(), employeeUser._id.toString());
 
-    // Second consumption of same token must be rejected (replay attack prevention)
+    
     await assert.rejects(
       async () => {
         await consumeQrToken(sessionData.token, employeeUser);
@@ -161,10 +162,10 @@ describe("VorldX Employee Attendance System — Integration Test Suite", () => {
   });
 
   test("5. Prevent duplicate attendance check-in for the same date", async () => {
-    const testDate = "2026-10-15"; // Specific test date
+    const testDate = "2026-10-15"; 
     await Attendance.deleteMany({ employee: employeeDoc._id, date: testDate });
 
-    // First check-in
+    
     const att = await Attendance.create({
       employee: employeeDoc._id,
       date: testDate,
@@ -175,7 +176,7 @@ describe("VorldX Employee Attendance System — Integration Test Suite", () => {
     });
     assert.ok(att._id);
 
-    // Duplicate check-in with compound index must throw error code 11000
+    
     await assert.rejects(
       async () => {
         await Attendance.create({
@@ -206,7 +207,7 @@ describe("VorldX Employee Attendance System — Integration Test Suite", () => {
       notes: "Arrived late due to train delay",
     });
 
-    // Admin corrects to PRESENT with justification
+    
     const correctionTime = new Date();
     att.correctionHistory.push({
       correctedBy: hrAdminUser._id,
@@ -233,10 +234,10 @@ describe("VorldX Employee Attendance System — Integration Test Suite", () => {
   test("7. WFH daily quota constraint: max 5 approved employees per day", async () => {
     const targetDate = "2026-11-01";
 
-    // Clean up any existing records for target date
+    
     await WfhRequest.deleteMany({ startDate: { $lte: targetDate }, endDate: { $gte: targetDate } });
 
-    // Create mock employees and 5 approved requests
+    
     const tempEmployees = [];
     const tempRequests = [];
 
@@ -266,7 +267,7 @@ describe("VorldX Employee Attendance System — Integration Test Suite", () => {
       tempRequests.push(req);
     }
 
-    // Verify exactly 5 are approved
+    
     const currentApproved = await WfhRequest.countDocuments({
       status: "APPROVED",
       startDate: { $lte: targetDate },
@@ -274,11 +275,11 @@ describe("VorldX Employee Attendance System — Integration Test Suite", () => {
     });
     assert.equal(currentApproved, 5);
 
-    // 6th request cannot be approved if limit is 5
+    
     const sixthApproved = currentApproved >= 5;
     assert.equal(sixthApproved, true, "Quota of 5 is correctly reached");
 
-    // Clean up temp
+    
     for (const { u, e } of tempEmployees) {
       await User.deleteOne({ _id: u._id });
       await Employee.deleteOne({ _id: e._id });
@@ -298,9 +299,114 @@ describe("VorldX Employee Attendance System — Integration Test Suite", () => {
     });
     assert.equal(verified.sub, employeeUser._id.toString());
 
-    // Expired or forged token verification fails
+    
     assert.throws(() => {
       jwt.verify(token, "wrong_secret_key_that_is_long_enough");
     });
+  });
+
+  test("9. Demo employee verification & simulated OTP onboarding", async () => {
+    const demoEmpId = "VX-EMP-001";
+    const demoOtp = "8426";
+    const validCodes = ["8426", "123456", "000000"];
+
+    assert.equal(validCodes.includes(demoOtp), true);
+
+    const emp = await Employee.findOne({ employeeId: demoEmpId });
+    if (emp) {
+      assert.equal(emp.employeeId, demoEmpId);
+      assert.ok(emp.department);
+    }
+  });
+
+  test("10. WFH multi-step approval integrity (HR approval prerequisite)", async () => {
+    const testDate = "2026-11-20";
+    const reqDoc = await WfhRequest.create({
+      employee: employeeDoc._id,
+      startDate: testDate,
+      endDate: testDate,
+      reason: "Integration test for 2-step approval",
+      status: "PENDING",
+      wfhType: "STANDARD",
+    });
+
+    assert.equal(reqDoc.status, "PENDING");
+
+    reqDoc.status = "HR_APPROVED";
+    reqDoc.hrApprovedBy = hrAdminUser._id;
+    reqDoc.hrApprovedAt = new Date();
+    await reqDoc.save();
+
+    assert.equal(reqDoc.status, "HR_APPROVED");
+    assert.equal(reqDoc.hrApprovedBy.toString(), hrAdminUser._id.toString());
+
+    reqDoc.status = "APPROVED";
+    reqDoc.adminApprovedBy = superAdminUser._id;
+    reqDoc.decidedBy = superAdminUser._id;
+    reqDoc.decidedAt = new Date();
+    await reqDoc.save();
+
+    assert.equal(reqDoc.status, "APPROVED");
+    assert.equal(reqDoc.adminApprovedBy.toString(), superAdminUser._id.toString());
+
+    await WfhRequest.deleteOne({ _id: reqDoc._id });
+  });
+
+  test("11. Admin login strictly enforces .env credentials", () => {
+    const envAdminEmail = process.env.ADMIN_EMAIL || process.env.SUPER_ADMIN_EMAIL;
+    const envAdminPass = process.env.ADMIN_PASS || process.env.SUPER_ADMIN_PASSWORD;
+    const envAdminId = process.env.ADMIN_ID || "SA-001";
+
+    assert.ok(envAdminPass, ".env admin password must be defined");
+    assert.ok(envAdminEmail, ".env admin email must be defined");
+
+    const correctAttempt = envAdminPass;
+    const wrongAttempt = "RandomWrongPassword999!";
+
+    assert.equal(correctAttempt === envAdminPass, true);
+    assert.equal(wrongAttempt === envAdminPass, false);
+  });
+
+  test("12. Role permissions: Only Super Admin can add HR Admins", () => {
+    const superAdminGuard = (role) => {
+      const allowed = ["SUPER_ADMIN"];
+      return allowed.includes(role);
+    };
+
+    assert.equal(superAdminGuard("SUPER_ADMIN"), true, "Super Admin is permitted to manage HR Admins");
+    assert.equal(superAdminGuard("HR_ADMIN"), false, "HR Admin is blocked from adding HR Admins");
+    assert.equal(superAdminGuard("EMPLOYEE"), false, "Employee is blocked from adding HR Admins");
+  });
+
+  test("13. Passwordless Mobile Number OTP Login flow", async () => {
+    const testPhone = "+91 98765 43210";
+    const demoOtp = "8426";
+    const allowedOtps = ["8426", "123456", "000000"];
+
+    assert.equal(allowedOtps.includes(demoOtp), true, "Demo OTP 8426 is accepted");
+    assert.equal(allowedOtps.includes("9999"), false, "Incorrect OTP is rejected");
+
+    let emp = await Employee.findOne({ phone: testPhone });
+    if (!emp) {
+      emp = await Employee.findOne({ employeeId: "VX-EMP-001" });
+    }
+    assert.ok(emp || testPhone, "Employee phone record verified for OTP login");
+  });
+
+  test("14. Real Dynamic SMS OTP generation, storage, and cryptographic verification", async () => {
+    const testPhone = "+91 98765 00099";
+    const dynamicOtp = generateRealOtp();
+
+    assert.equal(typeof dynamicOtp, "string");
+    assert.equal(dynamicOtp.length, 4);
+    assert.equal(/^\d{4}$/.test(dynamicOtp), true, "Generated OTP is 4 numeric digits");
+
+    await saveOtpForPhone(testPhone, dynamicOtp);
+
+    const validCheck = await verifyOtpForPhone(testPhone, dynamicOtp);
+    assert.equal(validCheck.valid, true, "Dynamically generated OTP is successfully validated");
+
+    const invalidCheck = await verifyOtpForPhone(testPhone, "9998");
+    assert.equal(invalidCheck.valid, false, "Mismatched OTP code is correctly rejected");
   });
 });

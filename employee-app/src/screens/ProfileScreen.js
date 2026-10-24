@@ -23,6 +23,7 @@ import { colors, radii, shadows, spacing } from "../theme/tokens";
 import WateryCard from "../components/WateryCard";
 import DarkButton from "../components/DarkButton";
 import ConfirmationModal from "../components/ConfirmationModal";
+import { useTheme } from "../context/ThemeContext";
 
 export default function ProfileScreen({ onBack }) {
   const {
@@ -33,6 +34,7 @@ export default function ProfileScreen({ onBack }) {
     enableBiometric,
     disableBiometric,
   } = useAuth();
+  const { wallpaper, wallpapers, changeWallpaper, wallpaperId } = useTheme();
 
   const [activeTab, setActiveTab] = useState("details");
 
@@ -335,21 +337,24 @@ export default function ProfileScreen({ onBack }) {
 
   return (
     <View style={styles.container}>
-      {}
       <View style={styles.header}>
         {onBack ? (
-          <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
+          <TouchableOpacity
+            style={[styles.backBtn, wallpaper && { backgroundColor: wallpaper.surface, borderColor: wallpaper.cardBorder }]}
+            onPress={onBack}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={20} color={wallpaper?.textPrimary || colors.textPrimary} />
           </TouchableOpacity>
         ) : (
           <View style={{ width: 36 }} />
         )}
         <View style={styles.headerTitleBox}>
-          <Text style={styles.headerTitle}>Profile & Security</Text>
-          <Text style={styles.headerSubtitle}>Personal data and credentials</Text>
+          <Text style={[styles.headerTitle, wallpaper && { color: wallpaper.textPrimary }]}>Profile & Security</Text>
+          <Text style={[styles.headerSubtitle, wallpaper && { color: wallpaper.textSecondary }]}>Personal data and credentials</Text>
         </View>
         <TouchableOpacity
-          style={styles.logoutTopBtn}
+          style={[styles.logoutTopBtn, wallpaper && { backgroundColor: wallpaper.surface, borderColor: wallpaper.cardBorder }]}
           onPress={() => setLogoutModalOpen(true)}
           activeOpacity={0.7}
         >
@@ -388,17 +393,17 @@ export default function ProfileScreen({ onBack }) {
             </TouchableOpacity>
 
             <View style={styles.identityDetails}>
-              <View style={styles.corpBadge}>
-                <Text style={styles.corpBadgeText}>VORLDX INDUSTRIES</Text>
+              <View style={[styles.corpBadge, wallpaper?.isDark && { backgroundColor: "rgba(3, 105, 161, 0.25)", borderColor: wallpaper.primary }]}>
+                <Text style={[styles.corpBadgeText, wallpaper?.isDark && { color: wallpaper.primary }]}>VORLDX INDUSTRIES</Text>
               </View>
-              <Text style={styles.identityName} numberOfLines={1}>
+              <Text style={[styles.identityName, wallpaper && { color: wallpaper.textPrimary }]} numberOfLines={1}>
                 {name || "Employee"}
               </Text>
-              <Text style={styles.identityRole}>
+              <Text style={[styles.identityRole, wallpaper && { color: wallpaper.textSecondary }]}>
                 {employee?.employeeId ? `${employee.employeeId} · ` : ""}
                 {employee?.department || "Operations"}
               </Text>
-              <Text style={styles.identityEmail} numberOfLines={1}>
+              <Text style={[styles.identityEmail, wallpaper && { color: wallpaper.textMuted }]} numberOfLines={1}>
                 {user?.email || "employee@vorldx.com"}
               </Text>
 
@@ -416,50 +421,112 @@ export default function ProfileScreen({ onBack }) {
           </View>
         </WateryCard>
 
-        {}
-        <View style={styles.tabRow}>
+        <View style={[styles.tabRow, wallpaper && { backgroundColor: wallpaper.surfaceWatery, borderColor: wallpaper.cardBorder }]}>
           <TouchableOpacity
-            style={[styles.tabBtn, activeTab === "details" && styles.tabBtnActive]}
+            style={[
+              styles.tabBtn,
+              activeTab === "details" && (wallpaper?.isDark
+                ? { backgroundColor: wallpaper.primary }
+                : styles.tabBtnActive),
+            ]}
             onPress={() => setActiveTab("details")}
             activeOpacity={0.8}
           >
             <Ionicons
               name="person-outline"
               size={15}
-              color={activeTab === "details" ? "#FFFFFF" : colors.textSecondary}
+              color={activeTab === "details" ? (wallpaper?.isDark ? "#040915" : "#FFFFFF") : (wallpaper?.textSecondary || colors.textSecondary)}
             />
-            <Text style={[styles.tabBtnText, activeTab === "details" && styles.tabBtnTextActive]}>
+            <Text style={[
+              styles.tabBtnText,
+              wallpaper && { color: wallpaper.textSecondary },
+              activeTab === "details" && {
+                color: wallpaper?.isDark ? "#040915" : "#FFFFFF",
+                fontWeight: "900",
+              },
+            ]}>
               Details
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tabBtn, activeTab === "security" && styles.tabBtnActive]}
+            style={[
+              styles.tabBtn,
+              activeTab === "security" && (wallpaper?.isDark
+                ? { backgroundColor: wallpaper.primary }
+                : styles.tabBtnActive),
+            ]}
             onPress={() => setActiveTab("security")}
             activeOpacity={0.8}
           >
             <Ionicons
               name="shield-checkmark-outline"
               size={15}
-              color={activeTab === "security" ? "#FFFFFF" : colors.textSecondary}
+              color={activeTab === "security" ? (wallpaper?.isDark ? "#040915" : "#FFFFFF") : (wallpaper?.textSecondary || colors.textSecondary)}
             />
-            <Text style={[styles.tabBtnText, activeTab === "security" && styles.tabBtnTextActive]}>
+            <Text style={[
+              styles.tabBtnText,
+              wallpaper && { color: wallpaper.textSecondary },
+              activeTab === "security" && {
+                color: wallpaper?.isDark ? "#040915" : "#FFFFFF",
+                fontWeight: "900",
+              },
+            ]}>
               Security
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tabBtn, activeTab === "server" && styles.tabBtnActive]}
+            style={[
+              styles.tabBtn,
+              activeTab === "server" && (wallpaper?.isDark
+                ? { backgroundColor: wallpaper.primary }
+                : styles.tabBtnActive),
+            ]}
             onPress={() => setActiveTab("server")}
             activeOpacity={0.8}
           >
             <Ionicons
               name="server-outline"
               size={15}
-              color={activeTab === "server" ? "#FFFFFF" : colors.textSecondary}
+              color={activeTab === "server" ? (wallpaper?.isDark ? "#040915" : "#FFFFFF") : (wallpaper?.textSecondary || colors.textSecondary)}
             />
-            <Text style={[styles.tabBtnText, activeTab === "server" && styles.tabBtnTextActive]}>
+            <Text style={[
+              styles.tabBtnText,
+              wallpaper && { color: wallpaper.textSecondary },
+              activeTab === "server" && {
+                color: wallpaper?.isDark ? "#040915" : "#FFFFFF",
+                fontWeight: "900",
+              },
+            ]}>
               Server
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.tabBtn,
+              activeTab === "wallpaper" && (wallpaper?.isDark
+                ? { backgroundColor: wallpaper.primary }
+                : styles.tabBtnActive),
+            ]}
+            onPress={() => setActiveTab("wallpaper")}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="color-palette-outline"
+              size={15}
+              color={activeTab === "wallpaper" ? (wallpaper?.isDark ? "#040915" : "#FFFFFF") : (wallpaper?.textSecondary || colors.textSecondary)}
+            />
+            <Text style={[
+              styles.tabBtnText,
+              wallpaper && { color: wallpaper.textSecondary },
+              activeTab === "wallpaper" && {
+                color: wallpaper?.isDark ? "#040915" : "#FFFFFF",
+                fontWeight: "900",
+              },
+            ]}>
+              Theme
             </Text>
           </TouchableOpacity>
         </View>
@@ -707,6 +774,68 @@ export default function ProfileScreen({ onBack }) {
           </WateryCard>
         )}
 
+        {activeTab === "wallpaper" && (
+          <WateryCard style={styles.tabContentCard} elevated>
+            <View style={styles.wallpaperHeaderRow}>
+              <Text style={styles.sectionHeader}>INSIDE APP WALLPAPERS</Text>
+              <View style={styles.currentThemeBadge}>
+                <View style={[styles.paletteDotSmall, { backgroundColor: wallpaper.primary }]} />
+                <Text style={[styles.currentThemeBadgeText, { color: wallpaper.primary }]}>
+                  {wallpaper.name}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.wallpaperDescription}>
+              Select an ocean caustics theme to customize your background wallpaper across all app screens.
+            </Text>
+
+            <View style={styles.wallpaperList}>
+              {wallpapers.map((w) => {
+                const isSelected = w.id === wallpaperId;
+                return (
+                  <TouchableOpacity
+                    key={w.id}
+                    style={[
+                      styles.wallpaperItemCard,
+                      {
+                        backgroundColor: w.baseBg,
+                        borderColor: isSelected ? w.cardBorderActive : w.cardBorder,
+                        borderWidth: isSelected ? 2 : 1,
+                      },
+                    ]}
+                    activeOpacity={0.85}
+                    onPress={() => changeWallpaper(w.id)}
+                  >
+                    <View style={styles.paletteRow}>
+                      <View style={[styles.paletteDot, { backgroundColor: w.primary }]} />
+                      <View style={[styles.paletteDot, { backgroundColor: w.primaryDark }]} />
+                      <View style={[styles.paletteDot, { backgroundColor: w.cardBorderActive }]} />
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.nameRow}>
+                        <Text style={[styles.wallpaperItemName, { color: w.textPrimary }]}>
+                          {w.name}
+                        </Text>
+                        {isSelected && (
+                          <View style={[styles.activePill, { backgroundColor: w.primary }]}>
+                            <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                            <Text style={styles.activePillText}>Active</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={[styles.wallpaperItemTagline, { color: w.textSecondary }]}>
+                        {w.tagline}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </WateryCard>
+        )}
+
         {}
         <WateryCard style={styles.logoutCard}>
           <Text style={styles.logoutTitle}>Session Termination</Text>
@@ -828,7 +957,7 @@ export default function ProfileScreen({ onBack }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bgWatery,
+    backgroundColor: "transparent",
   },
   header: {
     flexDirection: "row",
@@ -837,7 +966,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: 48,
     paddingBottom: spacing.md,
-    backgroundColor: colors.surface,
+    backgroundColor: "transparent",
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
@@ -1062,25 +1191,25 @@ const styles = StyleSheet.create({
   },
   identityName: {
     fontSize: 18,
-    fontWeight: "800",
-    color: colors.textPrimary,
+    fontWeight: "900",
+    color: "#FFFFFF",
   },
   identityRole: {
     fontSize: 12.5,
-    color: colors.textSecondary,
+    color: "#93C5FD",
     fontWeight: "600",
     marginTop: 2,
   },
   identityEmail: {
     fontSize: 12,
-    color: colors.textMuted,
+    color: "#BAE6FD",
     marginTop: 2,
   },
   tabRow: {
     flexDirection: "row",
-    backgroundColor: colors.surfaceWatery,
+    backgroundColor: "rgba(7, 23, 51, 0.9)",
     borderWidth: 1,
-    borderColor: colors.borderWatery,
+    borderColor: "#1E3A8A",
     borderRadius: radii.lg,
     padding: 4,
     gap: 4,
@@ -1096,15 +1225,16 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   tabBtnActive: {
-    backgroundColor: colors.darkButton,
+    backgroundColor: "#00F0FF",
   },
   tabBtnText: {
     fontSize: 12,
     fontWeight: "700",
-    color: colors.textSecondary,
+    color: "#94A3B8",
   },
   tabBtnTextActive: {
-    color: "#FFFFFF",
+    color: "#040915",
+    fontWeight: "900",
   },
   tabContentCard: {
     marginBottom: spacing.lg,
@@ -1112,8 +1242,8 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     fontSize: 11,
-    fontWeight: "800",
-    color: colors.textWatery,
+    fontWeight: "900",
+    color: "#00F0FF",
     letterSpacing: 1,
     marginBottom: spacing.md,
   },
@@ -1123,19 +1253,19 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 10.5,
     fontWeight: "800",
-    color: colors.textSecondary,
+    color: "#38BDF8",
     marginBottom: 6,
     letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: colors.surfaceWatery,
+    backgroundColor: "rgba(6, 20, 44, 0.75)",
     borderWidth: 1,
-    borderColor: colors.borderWatery,
+    borderColor: "#1E3A8A",
     borderRadius: radii.md,
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
     fontSize: 13.5,
-    color: colors.textPrimary,
+    color: "#FFFFFF",
   },
   textArea: {
     height: 60,
@@ -1154,18 +1284,18 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: radii.md,
-    backgroundColor: colors.bgWateryDeep,
+    backgroundColor: "rgba(3, 105, 161, 0.25)",
     alignItems: "center",
     justifyContent: "center",
   },
   bioTitle: {
     fontSize: 16,
-    fontWeight: "700",
-    color: colors.textPrimary,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
   bioSub: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: "#93C5FD",
     marginTop: 2,
   },
   bioStatusPillRow: {
@@ -1227,5 +1357,81 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: colors.textSecondary,
     marginTop: 3,
+  },
+  wallpaperHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  currentThemeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radii.sm,
+    backgroundColor: "rgba(0, 240, 255, 0.1)",
+  },
+  currentThemeBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  paletteDotSmall: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  wallpaperDescription: {
+    fontSize: 12.5,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: spacing.md,
+  },
+  wallpaperList: {
+    gap: 10,
+  },
+  wallpaperItemCard: {
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  paletteRow: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  paletteDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  wallpaperItemName: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  wallpaperItemTagline: {
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  activePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  activePillText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
 });

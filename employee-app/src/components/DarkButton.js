@@ -14,7 +14,7 @@ export default function DarkButton({
   loading = false,
   disabled = false,
   icon = null,
-  variant = "primary", // "primary" (obsidian dark), "secondary" (watery outline), "danger" (soft red)
+  variant = "primary",
   style,
   textStyle,
 }) {

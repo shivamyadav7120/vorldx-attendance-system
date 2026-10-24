@@ -52,7 +52,8 @@ const allowedOrigins = [
   process.env.CLIENT_URL || "http://localhost:5173",
   "http://localhost:5173",
   "http://localhost:5174",
-  "http://localhost:8081", // Expo Web & Metro bundler
+  "http://localhost:8081",
+  "http://localhost:8082",
   "http://localhost:19000",
   "http://localhost:19006",
 ];

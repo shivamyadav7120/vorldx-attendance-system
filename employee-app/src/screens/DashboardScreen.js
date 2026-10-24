@@ -23,9 +23,13 @@ import StatusBadge from "../components/StatusBadge";
 import LiveShiftClock from "../components/LiveShiftClock";
 import ScannerModal from "../components/ScannerModal";
 import ConfirmationModal from "../components/ConfirmationModal";
+import { useTheme } from "../context/ThemeContext";
+import WallpaperSelectorModal from "../components/WallpaperSelectorModal";
 
 export default function DashboardScreen({ onNavigate }) {
   const { user, employee, logout } = useAuth();
+  const { wallpaper } = useTheme();
+  const [wallpaperModalOpen, setWallpaperModalOpen] = useState(false);
   const [todayData, setTodayData] = useState(null);
   const [historySummary, setHistorySummary] = useState({
     present: 0,
@@ -259,13 +263,16 @@ export default function DashboardScreen({ onNavigate }) {
             onPress={() => onNavigate("profile")}
             activeOpacity={0.8}
           >
-            <View style={styles.companyBadge}>
-              <Text style={styles.companyBadgeText}>VORLDX INDUSTRIES</Text>
+            <View style={[styles.companyBadge, wallpaper?.isDark && { backgroundColor: "rgba(3, 105, 161, 0.25)", borderColor: wallpaper.primary }]}>
+              <Text style={[styles.companyBadgeText, wallpaper?.isDark && { color: wallpaper.primary }]}>VORLDX INDUSTRIES</Text>
             </View>
-            <Text style={styles.userName} numberOfLines={1}>
+            <Text
+              style={[styles.userName, wallpaper && { color: wallpaper.textPrimary }]}
+              numberOfLines={1}
+            >
               {employee?.name || user?.name || "Employee"}
             </Text>
-            <Text style={styles.userRole}>
+            <Text style={[styles.userRole, wallpaper && { color: wallpaper.textSecondary }]}>
               {employee?.employeeId ? `${employee.employeeId} · ` : ""}
               {employee?.designation || employee?.department || "Team Member"}
             </Text>
@@ -273,11 +280,25 @@ export default function DashboardScreen({ onNavigate }) {
 
           <View style={styles.headerActions}>
             <TouchableOpacity
-              style={styles.iconCircleBtn}
+              style={[
+                styles.iconCircleBtn,
+                wallpaper && { backgroundColor: wallpaper.surface, borderColor: wallpaper.cardBorder },
+              ]}
+              onPress={() => setWallpaperModalOpen(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="color-palette-outline" size={20} color={wallpaper.primary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.iconCircleBtn,
+                wallpaper && { backgroundColor: wallpaper.surface, borderColor: wallpaper.cardBorder },
+              ]}
               onPress={() => setNotificationsModalOpen(true)}
               activeOpacity={0.8}
             >
-              <Ionicons name="notifications-outline" size={21} color={colors.textPrimary} />
+              <Ionicons name="notifications-outline" size={21} color={wallpaper?.textPrimary || colors.textPrimary} />
               {unreadNotifCount > 0 && (
                 <View style={styles.notifBadge}>
                   <Text style={styles.notifBadgeText}>
@@ -290,7 +311,8 @@ export default function DashboardScreen({ onNavigate }) {
             <TouchableOpacity
               style={[
                 styles.iconCircleBtn,
-                Boolean(employee?.avatar || user?.avatar) && { padding: 0, overflow: "hidden", borderColor: "#00f0ff" }
+                wallpaper && { backgroundColor: wallpaper.surface, borderColor: wallpaper.cardBorder },
+                Boolean(employee?.avatar || user?.avatar) && { padding: 0, overflow: "hidden", borderColor: "#00f0ff" },
               ]}
               onPress={() => onNavigate("profile")}
               activeOpacity={0.8}
@@ -302,12 +324,15 @@ export default function DashboardScreen({ onNavigate }) {
                   resizeMode="cover"
                 />
               ) : (
-                <Ionicons name="person-circle-outline" size={26} color={colors.textPrimary} />
+                <Ionicons name="person-circle-outline" size={26} color={wallpaper?.textPrimary || colors.textPrimary} />
               )}
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.iconCircleBtn}
+              style={[
+                styles.iconCircleBtn,
+                wallpaper && { backgroundColor: wallpaper.surface, borderColor: wallpaper.cardBorder },
+              ]}
               onPress={() => setLogoutModalOpen(true)}
               activeOpacity={0.8}
             >
@@ -352,12 +377,11 @@ export default function DashboardScreen({ onNavigate }) {
         {}
         <LiveShiftClock todayAttendance={att} />
 
-        {}
         <WateryCard style={styles.attendanceCard} elevated>
           <View style={styles.attendanceHeader}>
             <View>
-              <Text style={styles.sectionHeading}>Today's Attendance</Text>
-              <Text style={styles.currentDate}>
+              <Text style={[styles.sectionHeading, wallpaper && { color: wallpaper.textPrimary }]}>Today's Attendance</Text>
+              <Text style={[styles.currentDate, wallpaper && { color: wallpaper.textSecondary }]}>
                 {new Date().toLocaleDateString("en-IN", {
                   timeZone: "Asia/Kolkata",
                   weekday: "long",
@@ -377,17 +401,16 @@ export default function DashboardScreen({ onNavigate }) {
           </View>
 
           {loading ? (
-            <ActivityIndicator color={colors.primary} style={{ marginVertical: 24 }} />
+            <ActivityIndicator color={wallpaper?.primary || colors.primary} style={{ marginVertical: 24 }} />
           ) : (
             <View style={styles.attendanceContent}>
-              {}
-              <View style={styles.timeGrid}>
+              <View style={[styles.timeGrid, wallpaper && { backgroundColor: wallpaper.surfaceWatery, borderColor: wallpaper.cardBorder }]}>
                 <View style={styles.timeTile}>
                   <View style={styles.timeTileHeader}>
-                    <Ionicons name="enter-outline" size={16} color={colors.primary} />
-                    <Text style={styles.timeTileLabel}>CHECK-IN</Text>
+                    <Ionicons name="enter-outline" size={16} color={wallpaper?.primary || colors.primary} />
+                    <Text style={[styles.timeTileLabel, wallpaper && { color: wallpaper.textSecondary }]}>CHECK-IN</Text>
                   </View>
-                  <Text style={styles.timeTileValue}>
+                  <Text style={[styles.timeTileValue, wallpaper && { color: wallpaper.textPrimary }]}>
                     {att?.checkIn
                       ? new Date(att.checkIn).toLocaleTimeString("en-IN", {
                           hour: "2-digit",
@@ -397,18 +420,18 @@ export default function DashboardScreen({ onNavigate }) {
                       : "—:—"}
                   </Text>
                   {att?.mode && (
-                    <Text style={styles.timeTileSub}>Via {att.mode}</Text>
+                    <Text style={[styles.timeTileSub, wallpaper && { color: wallpaper.textMuted }]}>Via {att.mode}</Text>
                   )}
                 </View>
 
-                <View style={styles.timeDivider} />
+                <View style={[styles.timeDivider, wallpaper && { backgroundColor: wallpaper.cardBorder }]} />
 
                 <View style={styles.timeTile}>
                   <View style={styles.timeTileHeader}>
-                    <Ionicons name="exit-outline" size={16} color={colors.textSecondary} />
-                    <Text style={styles.timeTileLabel}>CHECK-OUT</Text>
+                    <Ionicons name="exit-outline" size={16} color={wallpaper?.textSecondary || colors.textSecondary} />
+                    <Text style={[styles.timeTileLabel, wallpaper && { color: wallpaper.textSecondary }]}>CHECK-OUT</Text>
                   </View>
-                  <Text style={styles.timeTileValue}>
+                  <Text style={[styles.timeTileValue, wallpaper && { color: wallpaper.textPrimary }]}>
                     {att?.checkOut
                       ? new Date(att.checkOut).toLocaleTimeString("en-IN", {
                           hour: "2-digit",
@@ -417,17 +440,15 @@ export default function DashboardScreen({ onNavigate }) {
                         })
                       : "—:—"}
                   </Text>
-                  <Text style={styles.timeTileSub}>
+                  <Text style={[styles.timeTileSub, wallpaper && { color: wallpaper.textMuted }]}>
                     {isCheckedOut ? "Completed" : isCheckedIn ? "Active Shift" : "Pending"}
                   </Text>
                 </View>
               </View>
 
-              {}
               <View style={styles.actionContainer}>
                 {!isCheckedIn ? (
                   <View style={styles.checkInButtonStack}>
-                    {}
                     <DarkButton
                       title="Scan Office QR to Check In"
                       onPress={() => {
@@ -443,7 +464,7 @@ export default function DashboardScreen({ onNavigate }) {
                       variant="secondary"
                       onPress={handleWfhCheckIn}
                       loading={checkingInWfh}
-                      icon={<Ionicons name="home-outline" size={18} color={colors.textPrimary} />}
+                      icon={<Ionicons name="home-outline" size={18} color={wallpaper?.textPrimary || colors.textPrimary} />}
                       style={{ marginTop: spacing.sm }}
                     />
                   </View>
@@ -470,72 +491,70 @@ export default function DashboardScreen({ onNavigate }) {
           )}
         </WateryCard>
 
-        {}
-        <Text style={styles.sectionTitle}>THIS MONTH'S SUMMARY</Text>
+        <Text style={[styles.sectionTitle, wallpaper && { color: wallpaper.primary }]}>THIS MONTH'S SUMMARY</Text>
         <View style={styles.metricGrid}>
           <WateryCard style={styles.metricTile}>
-            <Text style={styles.metricValue}>{historySummary.present}</Text>
-            <Text style={styles.metricLabel}>Days Present</Text>
+            <Text style={[styles.metricValue, wallpaper && { color: wallpaper.textPrimary }]}>{historySummary.present}</Text>
+            <Text style={[styles.metricLabel, wallpaper && { color: wallpaper.textSecondary }]}>Days Present</Text>
           </WateryCard>
 
           <WateryCard style={styles.metricTile}>
-            <Text style={[styles.metricValue, { color: "#D97706" }]}>
+            <Text style={[styles.metricValue, { color: "#F59E0B" }]}>
               {historySummary.late}
             </Text>
-            <Text style={styles.metricLabel}>Late Marks</Text>
+            <Text style={[styles.metricLabel, wallpaper && { color: wallpaper.textSecondary }]}>Late Marks</Text>
           </WateryCard>
 
           <WateryCard style={styles.metricTile}>
-            <Text style={[styles.metricValue, { color: colors.primary }]}>
+            <Text style={[styles.metricValue, { color: wallpaper?.primary || colors.primary }]}>
               {historySummary.wfh}
             </Text>
-            <Text style={styles.metricLabel}>Remote WFH</Text>
+            <Text style={[styles.metricLabel, wallpaper && { color: wallpaper.textSecondary }]}>Remote WFH</Text>
           </WateryCard>
 
           <WateryCard style={styles.metricTile}>
-            <Text style={[styles.metricValue, { color: colors.textSecondary }]}>
+            <Text style={[styles.metricValue, { color: wallpaper?.textSecondary || colors.textSecondary }]}>
               {historySummary.halfDay}
             </Text>
-            <Text style={styles.metricLabel}>Half Days</Text>
+            <Text style={[styles.metricLabel, wallpaper && { color: wallpaper.textSecondary }]}>Half Days</Text>
           </WateryCard>
         </View>
 
-        {}
-        <Text style={styles.sectionTitle}>WORKSPACE SERVICES</Text>
+        <Text style={[styles.sectionTitle, wallpaper && { color: wallpaper.primary }]}>WORKSPACE SERVICES</Text>
         <View style={styles.servicesGrid}>
           <TouchableOpacity
-            style={styles.serviceItem}
+            style={[styles.serviceItem, wallpaper && { backgroundColor: wallpaper.surface, borderColor: wallpaper.cardBorder }]}
             onPress={() => onNavigate("history")}
             activeOpacity={0.8}
           >
-            <View style={styles.serviceIconCircle}>
-              <Ionicons name="calendar-outline" size={22} color={colors.primary} />
+            <View style={[styles.serviceIconCircle, wallpaper && { backgroundColor: wallpaper.surfaceWatery, borderColor: wallpaper.primary }]}>
+              <Ionicons name="calendar-outline" size={22} color={wallpaper?.primary || colors.primary} />
             </View>
-            <Text style={styles.serviceTitle}>Attendance</Text>
-            <Text style={styles.serviceSub}>Monthly logs</Text>
+            <Text style={[styles.serviceTitle, wallpaper && { color: wallpaper.textPrimary }]}>Attendance</Text>
+            <Text style={[styles.serviceSub, wallpaper && { color: wallpaper.textSecondary }]}>Monthly logs</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.serviceItem}
+            style={[styles.serviceItem, wallpaper && { backgroundColor: wallpaper.surface, borderColor: wallpaper.cardBorder }]}
             onPress={() => onNavigate("wfh")}
             activeOpacity={0.8}
           >
-            <View style={styles.serviceIconCircle}>
-              <Ionicons name="laptop-outline" size={22} color={colors.primary} />
+            <View style={[styles.serviceIconCircle, wallpaper && { backgroundColor: wallpaper.surfaceWatery, borderColor: wallpaper.primary }]}>
+              <Ionicons name="laptop-outline" size={22} color={wallpaper?.primary || colors.primary} />
             </View>
-            <Text style={styles.serviceTitle}>Work From Home</Text>
-            <Text style={styles.serviceSub}>Apply & track</Text>
+            <Text style={[styles.serviceTitle, wallpaper && { color: wallpaper.textPrimary }]}>Work From Home</Text>
+            <Text style={[styles.serviceSub, wallpaper && { color: wallpaper.textSecondary }]}>Apply & track</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.serviceItem}
+            style={[styles.serviceItem, wallpaper && { backgroundColor: wallpaper.surface, borderColor: wallpaper.cardBorder }]}
             onPress={() => onNavigate("leave")}
             activeOpacity={0.8}
           >
-            <View style={styles.serviceIconCircle}>
-              <Ionicons name="document-text-outline" size={22} color={colors.primary} />
+            <View style={[styles.serviceIconCircle, wallpaper && { backgroundColor: wallpaper.surfaceWatery, borderColor: wallpaper.primary }]}>
+              <Ionicons name="document-text-outline" size={22} color={wallpaper?.primary || colors.primary} />
             </View>
-            <Text style={styles.serviceTitle}>Leave Requests</Text>
+            <Text style={[styles.serviceTitle, wallpaper && { color: wallpaper.textPrimary }]}>Leave Requests</Text>
             <Text style={styles.serviceSub}>Apply for leave</Text>
           </TouchableOpacity>
 
@@ -701,6 +720,11 @@ export default function DashboardScreen({ onNavigate }) {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      <WallpaperSelectorModal
+        visible={wallpaperModalOpen}
+        onClose={() => setWallpaperModalOpen(false)}
+      />
     </View>
   );
 }
@@ -708,7 +732,7 @@ export default function DashboardScreen({ onNavigate }) {
 const styles = StyleSheet.create({
   screenWrapper: {
     flex: 1,
-    backgroundColor: colors.bgWatery,
+    backgroundColor: "transparent",
   },
   container: {
     flex: 1,

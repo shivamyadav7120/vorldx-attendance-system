@@ -2,7 +2,7 @@ import { AttendancePolicy } from "../models/index.js";
 
 let cachedPolicy = null;
 let lastFetch = 0;
-const CACHE_TTL_MS = 60 * 1000; // 1 minute
+const CACHE_TTL_MS = 60 * 1000; 
 
 export const DEFAULT_POLICY = {
   key: "default",
@@ -56,16 +56,7 @@ export function getIndiaTime(date = new Date()) {
   }).format(date);
 }
 
-/**
- * Evaluates attendance status based on India time and policy.
- * Office start: 09:00 AM.
- * Check-in cutoff: 09:30 AM.
- * If time <= 09:30: "PRESENT"
- * If time > 09:30: configured policy action:
- *   - "MARK_LATE" -> "LATE"
- *   - "MARK_ABSENT" -> "ABSENT"
- *   - "MARK_HALF_DAY" -> "HALF_DAY"
- */
+
 export function evaluateAttendanceStatus(timeStr, policy = DEFAULT_POLICY) {
   const cutoff = policy.checkInCutoffTime || "09:30";
   if (timeStr <= cutoff) {

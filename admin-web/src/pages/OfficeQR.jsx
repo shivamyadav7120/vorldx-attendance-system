@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import api, { errorMessage } from "../services/api";
+import Brand from "../components/Brand";
 
 export default function OfficeQR() {
   const [session, setSession] = useState(null);
@@ -22,6 +23,7 @@ export default function OfficeQR() {
   const [seconds, setSeconds] = useState(0);
   const [copied, setCopied] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [kioskMode, setKioskMode] = useState(false);
 
   const autoRefreshRef = useRef(autoRefresh);
   autoRefreshRef.current = autoRefresh;
@@ -108,6 +110,58 @@ export default function OfficeQR() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  if (kioskMode) {
+    return (
+      <div className="office-kiosk-fullscreen">
+        <div className="kiosk-header">
+          <Brand />
+          <div className="kiosk-clock">
+            <span>
+              {new Date().toLocaleDateString("en-IN", {
+                weekday: "long",
+                month: "short",
+                day: "numeric",
+              })}
+            </span>
+            <b>
+              {new Date().toLocaleTimeString("en-IN", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })}
+            </b>
+          </div>
+          <button
+            className="button button-secondary"
+            onClick={() => setKioskMode(false)}
+          >
+            Exit Kiosk Mode
+          </button>
+        </div>
+
+        <div className="kiosk-body">
+          <div className="kiosk-qr-card">
+            <div className="qr-laser-line" />
+            <QRCodeSVG
+              value={payload}
+              size={320}
+              bgColor="#ffffff"
+              fgColor="#08203a"
+              level="H"
+              includeMargin
+            />
+            <div className="kiosk-token-meta">
+              <b>VORLDX RECEPTION CHECK-IN / CHECK-OUT</b>
+              <span>
+                Scan with VorldX Employee App · Token refreshes in {seconds}s
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="page-heading">
@@ -119,6 +173,14 @@ export default function OfficeQR() {
           </p>
         </div>
         <div className="heading-actions">
+          <button
+            className="button button-secondary"
+            onClick={() => setKioskMode(true)}
+            title="Open Dedicated Fullscreen Reception / Kiosk Screen"
+          >
+            <Monitor size={16} />
+            <span>Kiosk Display</span>
+          </button>
           <Link
             to="/settings"
             className="button button-secondary"
@@ -146,7 +208,7 @@ export default function OfficeQR() {
         </div>
       </div>
 
-      {/* Office Timings & Policy Banner */}
+      
       <div
         style={{
           display: "flex",
@@ -211,6 +273,7 @@ export default function OfficeQR() {
           <div className={`qr-display ${!session || seconds <= 0 ? "qr-empty" : ""}`}>
             {session && seconds > 0 ? (
               <div className="qr-code-box">
+                <div className="qr-laser-line" />
                 <QRCodeSVG
                   value={payload}
                   size={240}

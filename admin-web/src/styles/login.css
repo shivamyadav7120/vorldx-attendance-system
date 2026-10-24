@@ -11,7 +11,6 @@
 @media(max-width:760px){.login-screen{grid-template-columns:1fr;gap:35px;padding:28px 20px 35px;align-content:center}.login-intro{max-width:560px;width:100%;margin:0 auto}.login-intro .brand{margin-bottom:35px}.login-intro .brand-mark{width:49px;height:49px;font-size:31px}.login-intro .brand-name{font-size:29px}.login-intro .brand-caption{font-size:8px}.intro-copy h1{font-size:35px;letter-spacing:-1.3px;margin:13px 0}.intro-copy p{font-size:12px}.feature-grid{margin-top:22px;max-width:440px}.feature-icon{height:39px;width:39px;border-radius:12px}.trust-line{margin-top:22px}.login-card-wrap{justify-self:center;max-width:480px}.login-card{padding:26px;border-radius:20px}.login-card-mark{height:45px;width:45px;font-size:26px;margin-bottom:18px}.login-card h2{font-size:29px}.login-subtitle{margin-bottom:20px}.login-footnote{margin-bottom:0}.water-back{height:25%;bottom:4%}.water-front{height:16%}.dots-right{display:none}}
 @media(max-width:420px){.login-screen{padding:23px 15px 28px;gap:25px}.intro-copy h1{font-size:30px}.intro-copy p{font-size:11px}.feature-grid{gap:4px}.feature-item{font-size:10px}.feature-item b{font-size:10px}.feature-item span{font-size:9px}.login-card{padding:21px}.login-card h2{font-size:26px}.input-with-icon{height:47px}.login-options{font-size:9px}}
 
-/* ===== Reference design: VorldX_Dark_Wave_Admin_Login ===== */
 .login-screen{background:radial-gradient(ellipse at 12% 78%,#0d5f9a 0%,transparent 40%),radial-gradient(ellipse at 90% 8%,#1d6fd0 0%,transparent 34%),linear-gradient(135deg,#041c3a 0%,#06284f 52%,#031630 100%)}
 .login-logo{display:flex;align-items:center;gap:18px;margin-bottom:34px}
 .login-logo span{font:800 66px/1 Manrope,sans-serif;letter-spacing:-2.5px;color:#f7fbff}
@@ -53,3 +52,38 @@
 .login-card .secure-note svg{color:#5aa9ec}
 @media(max-width:1000px){.login-logo span{font-size:52px}.trust-line{position:static;margin-top:34px}.input-with-icon{height:62px}.sign-in-button{height:58px}}
 @media(max-width:760px){.login-logo{margin-bottom:22px;gap:12px}.login-logo span{font-size:42px}.login-logo svg{width:52px;height:52px}.feature-grid{gap:8px}.feature-icon{height:50px;width:50px}.login-card h2{font-size:30px}}
+
+.water-back {
+  animation: waveFloatBack 9s ease-in-out infinite;
+  will-change: transform;
+}
+
+.water-front {
+  animation: waveFloatFront 6.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+.glow-one {
+  animation: glowPulse 10s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+.glow-two {
+  animation: glowPulse 12s ease-in-out infinite alternate-reverse;
+  will-change: transform, opacity;
+}
+
+@keyframes waveFloatBack {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50% { transform: translateY(-8px) scaleY(1.04); }
+}
+
+@keyframes waveFloatFront {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50% { transform: translateY(-12px) scaleY(1.06); }
+}
+
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.15); }
+}

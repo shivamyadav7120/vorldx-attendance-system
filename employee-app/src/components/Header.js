@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.md,
-    backgroundColor: colors.bgWatery,
+    backgroundColor: "transparent",
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },

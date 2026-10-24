@@ -4,7 +4,7 @@ import { createQrSession } from "../services/qrService.js";
 
 const router = express.Router();
 
-// Admin-authenticated QR session generator
+
 router.post(
   "/qr/session",
   authenticate,
@@ -24,8 +24,8 @@ router.post(
   }
 );
 
-// Standalone Office Reception Kiosk Display endpoint
-// Allows dedicated wall/reception tablet screens to fetch rolling 18-second QR codes
+
+
 router.get("/qr/kiosk", async (req, res, next) => {
   try {
     const session = await createQrSession(null, "Reception Kiosk");

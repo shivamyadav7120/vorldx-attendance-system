@@ -17,6 +17,17 @@ const DEFAULT_API_URL =
 let currentBaseUrl = DEFAULT_API_URL;
 
 export async function getBaseUrl() {
+  if (Platform.OS === "web") {
+    const webHost = typeof window !== "undefined" && window.location?.hostname ? window.location.hostname : "localhost";
+    const saved = await AsyncStorage.getItem(API_URL_KEY);
+    if (saved && saved.startsWith("http")) {
+      currentBaseUrl = saved.trim().replace(/\/+$/, "");
+    } else {
+      currentBaseUrl = `http://${webHost}:5000/api`;
+    }
+    return currentBaseUrl;
+  }
+
   const saved = await AsyncStorage.getItem(API_URL_KEY);
 
   if (saved) {
@@ -63,10 +74,13 @@ export async function request(path, options = {}) {
 
   const url = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
 
-
   const controller = new AbortController();
-  const timeoutMs = options.timeout || 10000;
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutMs = options.timeout || 20000;
+  const timeoutId = setTimeout(() => {
+    try {
+      controller.abort();
+    } catch (e) {}
+  }, timeoutMs);
 
   try {
     const response = await fetch(url, {
@@ -95,7 +109,7 @@ export async function request(path, options = {}) {
     clearTimeout(timeoutId);
 
     if (error.name === "AbortError") {
-      const err = new Error("Network request timed out. Please check your connection.");
+      const err = new Error("Network request timed out or was cancelled. Please check your connection.");
       err.isNetworkError = true;
       throw err;
     }
@@ -107,7 +121,7 @@ export async function request(path, options = {}) {
       error.code === "ECONNABORTED"
     ) {
       const err = new Error(
-        `Unable to reach backend at ${baseUrl}. Check your Wi-Fi, server and API URL.`
+        `Unable to reach backend at ${baseUrl}. Ensure backend server is running on port 5000.`
       );
       err.isNetworkError = true;
       throw err;
@@ -129,6 +143,46 @@ export default {
         email: email.trim(),
         password,
       }),
+    });
+  },
+
+  async sendLoginOtp(phone) {
+    return request("/auth/send-login-otp", {
+      method: "POST",
+      body: JSON.stringify({
+        phone: String(phone).trim(),
+      }),
+    });
+  },
+
+  async loginWithOtp(phone, otp) {
+    return request("/auth/login-with-otp", {
+      method: "POST",
+      body: JSON.stringify({
+        phone: String(phone).trim(),
+        otp: String(otp).trim(),
+      }),
+    });
+  },
+
+  async verifyEmployeeId(employeeId) {
+    return request("/auth/verify-employee-id", {
+      method: "POST",
+      body: JSON.stringify({ employeeId: employeeId.trim() }),
+    });
+  },
+
+  async verifyDemoOtp(employeeId, otp) {
+    return request("/auth/verify-demo-otp", {
+      method: "POST",
+      body: JSON.stringify({ employeeId: employeeId.trim(), otp: String(otp).trim() }),
+    });
+  },
+
+  async completeRegistration(payload) {
+    return request("/auth/register-complete", {
+      method: "POST",
+      body: JSON.stringify(payload),
     });
   },
 

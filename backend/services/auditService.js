@@ -1,8 +1,6 @@
 import { AuditLog } from "../models/index.js";
 
-/**
- * Records an immutable audit log entry.
- */
+
 export async function logAction({
   actor,
   action,

@@ -6,7 +6,7 @@ import { logAction } from "../services/auditService.js";
 
 const router = express.Router();
 
-// GET CURRENT POLICY
+
 router.get(
   "/policies/attendance",
   authenticate,
@@ -21,7 +21,7 @@ router.get(
   }
 );
 
-// UPDATE POLICY (SUPER ADMIN ONLY)
+
 router.put(
   "/policies/attendance",
   authenticate,

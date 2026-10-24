@@ -1,45 +1,42 @@
-/**
- * VorldX Enterprise Design Tokens
- * Watery Blue Palette with High-Contrast Dark Buttons
- */
+
 
 export const colors = {
-  // Watery Blue Palette (Base & Surfaces)
-  bgWatery: "#F0F7FD",        // Crisp slight watery blue background
-  bgWateryLight: "#F8FBFE",   // Ultra-light watery surface
-  bgWateryDeep: "#E0F2FE",    // Light aqua tint for highlights
-  bgWateryGlow: "#BAE6FD",    // Watery glow and focus borders
   
-  // Card & Surface Fills
+  bgWatery: "#F0F7FD",        
+  bgWateryLight: "#F8FBFE",   
+  bgWateryDeep: "#E0F2FE",    
+  bgWateryGlow: "#BAE6FD",    
+  
+  
   surface: "#FFFFFF",
   surfaceFrosted: "rgba(255, 255, 255, 0.94)",
   surfaceWatery: "#F4F9FD",
   
-  // Borders
+  
   borderLight: "#E1EEF8",
   borderWatery: "#CFE4F5",
   borderWateryActive: "#7DD3FC",
 
-  // High-Contrast Dark Buttons & Action Bars
-  darkButton: "#0F172A",       // Slate 900 midnight obsidian
-  darkButtonHover: "#1E293B",  // Slate 800
-  darkButtonText: "#FFFFFF",   // Pure white typography
+  
+  darkButton: "#0F172A",       
+  darkButtonHover: "#1E293B",  
+  darkButtonText: "#FFFFFF",   
   darkButtonSecondary: "#1E293B",
   darkButtonSecondaryBorder: "#334155",
 
-  // Primary Brand / Water Accents
-  primary: "#0284C7",          // Deep azure sky
-  primaryLight: "#38BDF8",     // Bright watery cyan
+  
+  primary: "#0284C7",          
+  primaryLight: "#38BDF8",     
   primaryDark: "#0369A1",
   primaryGhost: "#E0F2FE",
 
-  // Typography Colors
-  textPrimary: "#0F172A",      // Midnight slate
-  textSecondary: "#475569",    // Slate 600
-  textMuted: "#94A3B8",        // Slate 400
-  textWatery: "#0369A1",       // Ocean blue label
+  
+  textPrimary: "#0F172A",      
+  textSecondary: "#475569",    
+  textMuted: "#94A3B8",        
+  textWatery: "#0369A1",       
 
-  // Status & Feedback Badges
+  
   status: {
     present: {
       bg: "#DCFCE7",

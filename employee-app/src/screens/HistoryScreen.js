@@ -13,8 +13,10 @@ import api from "../services/api";
 import { colors, radii, shadows, spacing } from "../theme/tokens";
 import WateryCard from "../components/WateryCard";
 import StatusBadge from "../components/StatusBadge";
+import { useTheme } from "../context/ThemeContext";
 
 export default function HistoryScreen({ onBack }) {
+  const { wallpaper } = useTheme();
   const [records, setRecords] = useState([]);
   const [filteredRecords, setFilteredRecords] = useState([]);
   const [activeFilter, setActiveFilter] = useState("ALL");
@@ -25,7 +27,6 @@ export default function HistoryScreen({ onBack }) {
     try {
       const res = await api.getMyAttendance();
       const list = res.attendance || res.records || [];
-      // Sort newest date first
       list.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
       setRecords(list);
     } catch (e) {
@@ -56,66 +57,150 @@ export default function HistoryScreen({ onBack }) {
   const onTimeDays = records.filter((r) => r.status === "PRESENT").length;
   const lateDays = records.filter((r) => r.status === "LATE").length;
 
+  function renderItem({ item }) {
+    const itemDate = new Date(item.date);
+    const dayStr = itemDate.toLocaleDateString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+    const weekdayStr = itemDate.toLocaleDateString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      weekday: "short",
+    });
+
+    return (
+      <WateryCard style={styles.recordCard} elevated>
+        <View style={styles.recordHeader}>
+          <View>
+            <Text style={[styles.recordDate, wallpaper && { color: wallpaper.textPrimary }]}>{dayStr}</Text>
+            <Text style={[styles.recordWeekday, wallpaper && { color: wallpaper.textSecondary }]}>{weekdayStr}</Text>
+          </View>
+          <StatusBadge status={item.status} />
+        </View>
+
+        <View style={[styles.timesRow, wallpaper && { backgroundColor: wallpaper.surfaceWatery, borderColor: wallpaper.cardBorder }]}>
+          <View style={styles.timeColumn}>
+            <Text style={[styles.timeLabel, wallpaper && { color: wallpaper.textSecondary }]}>CHECK-IN</Text>
+            <Text style={[styles.timeValue, wallpaper && { color: wallpaper.textPrimary }]}>
+              {item.checkIn
+                ? new Date(item.checkIn).toLocaleTimeString("en-IN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    timeZone: "Asia/Kolkata",
+                  })
+                : "—:—"}
+            </Text>
+          </View>
+
+          <View style={[styles.timeDivider, wallpaper && { backgroundColor: wallpaper.cardBorder }]} />
+
+          <View style={styles.timeColumn}>
+            <Text style={[styles.timeLabel, wallpaper && { color: wallpaper.textSecondary }]}>CHECK-OUT</Text>
+            <Text style={[styles.timeValue, wallpaper && { color: wallpaper.textPrimary }]}>
+              {item.checkOut
+                ? new Date(item.checkOut).toLocaleTimeString("en-IN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    timeZone: "Asia/Kolkata",
+                  })
+                : "—:—"}
+            </Text>
+          </View>
+
+          <View style={[styles.timeDivider, wallpaper && { backgroundColor: wallpaper.cardBorder }]} />
+
+          <View style={styles.timeColumn}>
+            <Text style={[styles.timeLabel, wallpaper && { color: wallpaper.textSecondary }]}>MODE</Text>
+            <Text style={[styles.timeValue, wallpaper && { color: wallpaper.primary }]}>{item.mode || "OFFICE"}</Text>
+          </View>
+        </View>
+
+        {item.notes ? (
+          <View style={[styles.notesBox, wallpaper && { backgroundColor: wallpaper.surfaceWatery }]}>
+            <Ionicons name="information-circle-outline" size={14} color={wallpaper?.primary || colors.primary} />
+            <Text style={[styles.notesText, wallpaper && { color: wallpaper.textSecondary }]}>{item.notes}</Text>
+          </View>
+        ) : null}
+      </WateryCard>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {/* Top Navigation Bar */}
       <View style={styles.header}>
         {onBack ? (
-          <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
+          <TouchableOpacity
+            style={[styles.backBtn, wallpaper && { backgroundColor: wallpaper.surface, borderColor: wallpaper.cardBorder }]}
+            onPress={onBack}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={20} color={wallpaper?.textPrimary || colors.textPrimary} />
           </TouchableOpacity>
         ) : (
           <View style={{ width: 36 }} />
         )}
         <View style={styles.headerTitleBox}>
-          <Text style={styles.headerTitle}>Attendance History</Text>
-          <Text style={styles.headerSubtitle}>Verified check-in & check-out logs</Text>
+          <Text style={[styles.headerTitle, wallpaper && { color: wallpaper.textPrimary }]}>Attendance History</Text>
+          <Text style={[styles.headerSubtitle, wallpaper && { color: wallpaper.textSecondary }]}>Verified check-in & check-out logs</Text>
         </View>
         <TouchableOpacity
-          style={styles.refreshIconBtn}
+          style={[styles.refreshIconBtn, wallpaper && { backgroundColor: wallpaper.surface, borderColor: wallpaper.cardBorder }]}
           onPress={() => {
             setRefreshing(true);
             loadHistory();
           }}
           activeOpacity={0.7}
         >
-          <Ionicons name="refresh-outline" size={20} color={colors.primary} />
+          <Ionicons name="refresh-outline" size={20} color={wallpaper?.primary || colors.primary} />
         </TouchableOpacity>
       </View>
 
-      {/* Summary Stats Strip */}
-      <View style={styles.statsStrip}>
+      <View style={[styles.statsStrip, wallpaper && { backgroundColor: wallpaper.surface, borderColor: wallpaper.cardBorder }]}>
         <View style={styles.statBox}>
-          <Text style={styles.statNum}>{totalDays}</Text>
-          <Text style={styles.statLabel}>Total Days</Text>
+          <Text style={[styles.statNum, wallpaper && { color: wallpaper.textPrimary }]}>{totalDays}</Text>
+          <Text style={[styles.statLabel, wallpaper && { color: wallpaper.textSecondary }]}>Total Days</Text>
         </View>
-        <View style={styles.statDivider} />
+        <View style={[styles.statDivider, wallpaper && { backgroundColor: wallpaper.cardBorder }]} />
         <View style={styles.statBox}>
-          <Text style={[styles.statNum, { color: "#15803D" }]}>{onTimeDays}</Text>
-          <Text style={styles.statLabel}>On-Time</Text>
+          <Text style={[styles.statNum, { color: "#34D399" }]}>{onTimeDays}</Text>
+          <Text style={[styles.statLabel, wallpaper && { color: wallpaper.textSecondary }]}>On-Time</Text>
         </View>
-        <View style={styles.statDivider} />
+        <View style={[styles.statDivider, wallpaper && { backgroundColor: wallpaper.cardBorder }]} />
         <View style={styles.statBox}>
-          <Text style={[styles.statNum, { color: "#B45309" }]}>{lateDays}</Text>
-          <Text style={styles.statLabel}>Late Marks</Text>
+          <Text style={[styles.statNum, { color: "#F59E0B" }]}>{lateDays}</Text>
+          <Text style={[styles.statLabel, wallpaper && { color: wallpaper.textSecondary }]}>Late Marks</Text>
         </View>
       </View>
 
-      {/* Filter Tabs */}
       <View style={styles.filterRow}>
         {["ALL", "PRESENT", "LATE", "WFH"].map((f) => {
           const isActive = activeFilter === f;
           return (
             <TouchableOpacity
               key={f}
-              style={[styles.filterChip, isActive && styles.filterChipActive]}
+              style={[
+                styles.filterChip,
+                wallpaper && { backgroundColor: wallpaper.surfaceWatery, borderColor: wallpaper.cardBorder },
+                isActive && [
+                  styles.filterChipActive,
+                  wallpaper?.isDark
+                    ? { backgroundColor: wallpaper.primary, borderColor: wallpaper.primary }
+                    : { backgroundColor: colors.darkButton, borderColor: colors.darkButton },
+                ],
+              ]}
               onPress={() => setActiveFilter(f)}
               activeOpacity={0.8}
             >
               <Text
                 style={[
                   styles.filterChipText,
-                  isActive && styles.filterChipTextActive,
+                  wallpaper && { color: wallpaper.textSecondary },
+                  isActive && {
+                    color: wallpaper?.isDark ? "#040915" : "#FFFFFF",
+                    fontWeight: "900",
+                  },
                 ]}
               >
                 {f}
@@ -126,14 +211,14 @@ export default function HistoryScreen({ onBack }) {
       </View>
 
       {loading ? (
-        <View style={styles.centerLoader}>
-          <ActivityIndicator color={colors.primary} size="large" />
-          <Text style={styles.loadingText}>Loading attendance logs...</Text>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={wallpaper?.primary || colors.primary} />
         </View>
       ) : (
         <FlatList
           data={filteredRecords}
-          keyExtractor={(item, index) => item._id || item.date || String(index)}
+          keyExtractor={(item, index) => item._id || item.id || String(index)}
+          renderItem={renderItem}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl
@@ -142,83 +227,20 @@ export default function HistoryScreen({ onBack }) {
                 setRefreshing(true);
                 loadHistory();
               }}
-              tintColor={colors.primary}
+              tintColor={wallpaper?.primary || colors.primary}
             />
           }
           ListEmptyComponent={
             <WateryCard style={styles.emptyCard}>
-              <Ionicons name="calendar-clear-outline" size={44} color={colors.textMuted} />
-              <Text style={styles.emptyTitle}>No Records Found</Text>
-              <Text style={styles.emptySub}>
+              <Ionicons name="calendar-outline" size={44} color={wallpaper?.primary || colors.primary} />
+              <Text style={[styles.emptyTitle, wallpaper && { color: wallpaper.textPrimary }]}>No attendance records found</Text>
+              <Text style={[styles.emptySub, wallpaper && { color: wallpaper.textSecondary }]}>
                 {activeFilter === "ALL"
-                  ? "You haven't recorded any attendance logs yet."
-                  : `No attendance records match the filter '${activeFilter}'.`}
+                  ? "Scan the office screen QR code during work hours to start your logs."
+                  : `No records matching the filter: ${activeFilter}`}
               </Text>
             </WateryCard>
           }
-          renderItem={({ item }) => {
-            const checkInFormatted = item.checkIn
-              ? new Date(item.checkIn).toLocaleTimeString("en-IN", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  timeZone: "Asia/Kolkata",
-                })
-              : "—:—";
-
-            const checkOutFormatted = item.checkOut
-              ? new Date(item.checkOut).toLocaleTimeString("en-IN", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  timeZone: "Asia/Kolkata",
-                })
-              : "—:—";
-
-            const isOffice = item.mode === "OFFICE";
-
-            return (
-              <WateryCard style={styles.recordCard} elevated>
-                <View style={styles.cardHeader}>
-                  <View>
-                    <Text style={styles.cardDate}>{item.date}</Text>
-                    <View style={styles.modeRow}>
-                      <Ionicons
-                        name={isOffice ? "business-outline" : "laptop-outline"}
-                        size={14}
-                        color={colors.primary}
-                      />
-                      <Text style={styles.cardModeText}>
-                        {isOffice ? "Office QR Verification" : "Remote WFH"}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <StatusBadge status={item.status} size="sm" />
-                </View>
-
-                {/* In / Out Time Row */}
-                <View style={styles.timeRow}>
-                  <View style={styles.timeColumn}>
-                    <Text style={styles.timeLabel}>CHECK-IN</Text>
-                    <Text style={styles.timeValue}>{checkInFormatted}</Text>
-                  </View>
-
-                  <Ionicons name="arrow-forward" size={16} color={colors.borderWateryActive} />
-
-                  <View style={styles.timeColumn}>
-                    <Text style={styles.timeLabel}>CHECK-OUT</Text>
-                    <Text style={styles.timeValue}>{checkOutFormatted}</Text>
-                  </View>
-                </View>
-
-                {item.notes ? (
-                  <View style={styles.notesBox}>
-                    <Ionicons name="information-circle" size={14} color={colors.primary} />
-                    <Text style={styles.notesText}>{item.notes}</Text>
-                  </View>
-                ) : null}
-              </WateryCard>
-            );
-          }}
         />
       )}
     </View>
@@ -228,71 +250,82 @@ export default function HistoryScreen({ onBack }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bgWatery,
+    backgroundColor: "transparent",
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: spacing.lg,
-    paddingTop: 48,
-    paddingBottom: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceWatery,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: colors.borderWatery,
     alignItems: "center",
     justifyContent: "center",
+    ...shadows.sm,
   },
   headerTitleBox: {
-    alignItems: "center",
+    flex: 1,
+    marginHorizontal: spacing.md,
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "800",
     color: colors.textPrimary,
   },
   headerSubtitle: {
-    fontSize: 11.5,
+    fontSize: 12,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: 1,
   },
   refreshIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceWatery,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: colors.borderWatery,
     alignItems: "center",
     justifyContent: "center",
+    ...shadows.sm,
   },
   statsStrip: {
     flexDirection: "row",
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.borderWatery,
+    paddingVertical: 12,
     alignItems: "center",
-    backgroundColor: colors.surfaceWatery,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderWatery,
-    paddingVertical: spacing.md,
+    ...shadows.card,
   },
   statBox: {
     flex: 1,
     alignItems: "center",
   },
   statNum: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "800",
     color: colors.textPrimary,
   },
   statLabel: {
     fontSize: 11,
+    fontWeight: "700",
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -304,12 +337,12 @@ const styles = StyleSheet.create({
   filterRow: {
     flexDirection: "row",
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    gap: spacing.sm,
+    gap: 8,
+    marginBottom: spacing.md,
   },
   filterChip: {
-    paddingVertical: 6,
     paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: radii.pill,
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -320,62 +353,51 @@ const styles = StyleSheet.create({
     borderColor: colors.darkButton,
   },
   filterChipText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: "700",
     color: colors.textSecondary,
   },
   filterChipTextActive: {
     color: "#FFFFFF",
   },
-  centerLoader: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-  },
-  loadingText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
   listContent: {
-    padding: spacing.lg,
-    paddingBottom: 32,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 40,
+    gap: spacing.md,
   },
   recordCard: {
-    marginBottom: spacing.md,
-    padding: spacing.lg,
+    padding: spacing.md,
   },
-  cardHeader: {
+  recordHeader: {
     flexDirection: "row",
-    alignItems: "flex-start",
     justifyContent: "space-between",
-    marginBottom: spacing.md,
+    alignItems: "flex-start",
+    marginBottom: spacing.sm,
   },
-  cardDate: {
+  recordDate: {
     fontSize: 15,
     fontWeight: "800",
     color: colors.textPrimary,
   },
-  modeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: 3,
-  },
-  cardModeText: {
+  recordWeekday: {
     fontSize: 12,
     color: colors.textSecondary,
-    fontWeight: "500",
+    marginTop: 1,
   },
-  timeRow: {
+  timesRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
     backgroundColor: colors.surfaceWatery,
     borderRadius: radii.md,
-    paddingVertical: spacing.md,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: colors.borderLight,
+  },
+  timeDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: colors.borderWatery,
   },
   timeColumn: {
     alignItems: "center",

@@ -93,6 +93,11 @@ export default function AdminLayout() {
 
   return (
     <div className="app-shell">
+      <div className="water-ambient-canvas" aria-hidden="true">
+        <div className="water-caustics-orb water-caustics-orb-1" />
+        <div className="water-caustics-orb water-caustics-orb-2" />
+        <div className="water-caustics-orb water-caustics-orb-3" />
+      </div>
       {mobileOpen && (
         <button
           className="mobile-scrim"
@@ -298,7 +303,7 @@ export default function AdminLayout() {
           onUserUpdated={(updated) => updateUser(updated)}
         />
 
-        <div className="page-content">
+        <div className="page-content page-enter-animation" key={location.pathname}>
           <Outlet />
         </div>
 

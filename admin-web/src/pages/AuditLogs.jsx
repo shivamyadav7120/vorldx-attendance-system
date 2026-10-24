@@ -169,7 +169,7 @@ export default function AuditLogs() {
               </table>
             </div>
 
-            {/* Pagination Controls */}
+            
             {pagination.totalPages > 1 && (
               <div
                 style={{

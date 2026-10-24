@@ -18,6 +18,7 @@ import WateryCard from "../components/WateryCard";
 import DarkButton from "../components/DarkButton";
 import StatusBadge from "../components/StatusBadge";
 import ConfirmationModal from "../components/ConfirmationModal";
+import { useTheme } from "../context/ThemeContext";
 
 const LEAVE_TYPES = [
   { id: "Casual", label: "Casual Leave", icon: "sunny-outline" },
@@ -28,19 +29,18 @@ const LEAVE_TYPES = [
 ];
 
 export default function LeaveScreen({ onBack }) {
-  const [activeTab, setActiveTab] = useState("MY_LEAVES"); // "MY_LEAVES" | "APPLY"
+  const { wallpaper } = useTheme();
+  const [activeTab, setActiveTab] = useState("MY_LEAVES");
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Form states
   const [leaveType, setLeaveType] = useState("Casual");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Cancel modal
   const [cancelTargetId, setCancelTargetId] = useState(null);
   const [cancelling, setCancelling] = useState(false);
 
@@ -58,9 +58,6 @@ export default function LeaveScreen({ onBack }) {
 
   useEffect(() => {
     loadRequests();
-    const today = new Date().toISOString().slice(0, 10);
-    setStartDate(today);
-    setEndDate(today);
   }, []);
 
   function countDays(startStr, endStr) {
@@ -110,61 +107,89 @@ export default function LeaveScreen({ onBack }) {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         {onBack ? (
-          <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
+          <TouchableOpacity
+            style={[styles.backBtn, wallpaper && { backgroundColor: wallpaper.surface, borderColor: wallpaper.cardBorder }]}
+            onPress={onBack}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={20} color={wallpaper?.textPrimary || colors.textPrimary} />
           </TouchableOpacity>
         ) : (
           <View style={{ width: 36 }} />
         )}
         <View style={styles.headerTitleBox}>
-          <Text style={styles.headerTitle}>Leave Applications</Text>
-          <Text style={styles.headerSubtitle}>Planned time off & entitlements</Text>
+          <Text style={[styles.headerTitle, wallpaper && { color: wallpaper.textPrimary }]}>Leave Applications</Text>
+          <Text style={[styles.headerSubtitle, wallpaper && { color: wallpaper.textSecondary }]}>Planned time off & entitlements</Text>
         </View>
         <TouchableOpacity
-          style={styles.refreshIconBtn}
+          style={[styles.refreshIconBtn, wallpaper && { backgroundColor: wallpaper.surface, borderColor: wallpaper.cardBorder }]}
           onPress={() => {
             setRefreshing(true);
             loadRequests();
           }}
           activeOpacity={0.7}
         >
-          <Ionicons name="refresh-outline" size={20} color={colors.primary} />
+          <Ionicons name="refresh-outline" size={20} color={wallpaper?.primary || colors.primary} />
         </TouchableOpacity>
       </View>
 
-      {/* Segmented Switch */}
-      <View style={styles.tabContainer}>
+      <View style={[styles.tabContainer, wallpaper && { backgroundColor: wallpaper.surfaceWatery, borderColor: wallpaper.cardBorder }]}>
         <TouchableOpacity
-          style={[styles.tabButton, activeTab === "MY_LEAVES" && styles.tabButtonActive]}
+          style={[
+            styles.tabButton,
+            activeTab === "MY_LEAVES" && (wallpaper?.isDark
+              ? { backgroundColor: wallpaper.primary }
+              : styles.tabButtonActive),
+          ]}
           onPress={() => setActiveTab("MY_LEAVES")}
           activeOpacity={0.8}
         >
           <Ionicons
             name="document-text-outline"
             size={16}
-            color={activeTab === "MY_LEAVES" ? "#FFFFFF" : colors.textSecondary}
+            color={activeTab === "MY_LEAVES" ? (wallpaper?.isDark ? "#040915" : "#FFFFFF") : (wallpaper?.textSecondary || colors.textSecondary)}
           />
           <Text
-            style={[styles.tabText, activeTab === "MY_LEAVES" && styles.tabTextActive]}
+            style={[
+              styles.tabText,
+              wallpaper && { color: wallpaper.textSecondary },
+              activeTab === "MY_LEAVES" && {
+                color: wallpaper?.isDark ? "#040915" : "#FFFFFF",
+                fontWeight: "900",
+              },
+            ]}
           >
             My Leaves ({requests.length})
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tabButton, activeTab === "APPLY" && styles.tabButtonActive]}
+          style={[
+            styles.tabButton,
+            activeTab === "APPLY" && (wallpaper?.isDark
+              ? { backgroundColor: wallpaper.primary }
+              : styles.tabButtonActive),
+          ]}
           onPress={() => setActiveTab("APPLY")}
           activeOpacity={0.8}
         >
           <Ionicons
             name="add-circle-outline"
             size={16}
-            color={activeTab === "APPLY" ? "#FFFFFF" : colors.textSecondary}
+            color={activeTab === "APPLY" ? (wallpaper?.isDark ? "#040915" : "#FFFFFF") : (wallpaper?.textSecondary || colors.textSecondary)}
           />
-          <Text style={[styles.tabText, activeTab === "APPLY" && styles.tabTextActive]}>
+          <Text
+            style={[
+              styles.tabText,
+              wallpaper && { color: wallpaper.textSecondary },
+              activeTab === "APPLY" && {
+                color: wallpaper?.isDark ? "#040915" : "#FFFFFF",
+                fontWeight: "900",
+              },
+            ]}
+          >
             Apply for Leave
           </Text>
         </TouchableOpacity>
@@ -173,8 +198,8 @@ export default function LeaveScreen({ onBack }) {
       {activeTab === "MY_LEAVES" ? (
         loading ? (
           <View style={styles.centerLoader}>
-            <ActivityIndicator color={colors.primary} size="large" />
-            <Text style={styles.loadingText}>Loading leave applications...</Text>
+            <ActivityIndicator color={wallpaper?.primary || colors.primary} size="large" />
+            <Text style={[styles.loadingText, wallpaper && { color: wallpaper.textSecondary }]}>Loading leave applications...</Text>
           </View>
         ) : (
           <FlatList
@@ -188,48 +213,53 @@ export default function LeaveScreen({ onBack }) {
                   setRefreshing(true);
                   loadRequests();
                 }}
-                tintColor={colors.primary}
+                tintColor={wallpaper?.primary || colors.primary}
               />
             }
             ListEmptyComponent={
               <WateryCard style={styles.emptyCard}>
-                <Ionicons name="calendar-outline" size={44} color={colors.textMuted} />
-                <Text style={styles.emptyTitle}>No Leave Applications</Text>
-                <Text style={styles.emptySub}>
+                <Ionicons name="calendar-outline" size={44} color={wallpaper?.primary || colors.primary} />
+                <Text style={[styles.emptyTitle, wallpaper && { color: wallpaper.textPrimary }]}>No Leave Applications</Text>
+                <Text style={[styles.emptySub, wallpaper && { color: wallpaper.textSecondary }]}>
                   You haven't submitted any leave requests yet.
                 </Text>
               </WateryCard>
             }
             renderItem={({ item }) => {
-              const isPending = item.status === "PENDING";
-              const days = countDays(item.startDate, item.endDate);
+              const startFormatted = new Date(item.startDate).toLocaleDateString("en-IN", {
+                timeZone: "Asia/Kolkata",
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              });
+              const endFormatted = new Date(item.endDate).toLocaleDateString("en-IN", {
+                timeZone: "Asia/Kolkata",
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              });
+              const isPending = item.status === "PENDING" || item.status === "HR_APPROVED";
 
               return (
                 <WateryCard style={styles.requestCard} elevated>
                   <View style={styles.cardHeader}>
                     <View style={styles.dateBlock}>
-                      <View style={styles.typeBadge}>
-                        <Text style={styles.typeBadgeText}>
-                          {item.leaveType || "LEAVE"}
-                        </Text>
+                      <View style={[styles.typeBadge, wallpaper?.isDark && { backgroundColor: "rgba(3, 105, 161, 0.3)" }]}>
+                        <Text style={[styles.typeBadgeText, wallpaper?.isDark && { color: wallpaper.primary }]}>{item.leaveType || item.type || "Casual"} Leave</Text>
                       </View>
-                      <Text style={styles.dateRange}>
-                        {item.startDate} → {item.endDate}
+                      <Text style={[styles.dateRange, wallpaper && { color: wallpaper.textPrimary }]}>
+                        {startFormatted === endFormatted ? startFormatted : `${startFormatted} → ${endFormatted}`}
                       </Text>
-                      <Text style={styles.daysCount}>
-                        Duration: {days} day{days === 1 ? "" : "s"}
+                      <Text style={[styles.daysCount, wallpaper && { color: wallpaper.textSecondary }]}>
+                        {item.daysRequested || 1} day{(item.daysRequested || 1) > 1 ? "s" : ""}
                       </Text>
                     </View>
-
-                    <StatusBadge status={item.status} size="sm" />
+                    <StatusBadge status={item.status} />
                   </View>
 
-                  <Text style={styles.reasonText}>
-                    <Text style={{ fontWeight: "700", color: colors.textPrimary }}>
-                      Reason:{" "}
-                    </Text>
-                    {item.reason || "No reason specified."}
-                  </Text>
+                  {item.reason ? (
+                    <Text style={[styles.reasonText, wallpaper && { color: wallpaper.textSecondary }]}>{item.reason}</Text>
+                  ) : null}
 
                   {isPending && (
                     <TouchableOpacity
@@ -238,7 +268,7 @@ export default function LeaveScreen({ onBack }) {
                       activeOpacity={0.7}
                     >
                       <Ionicons name="close-circle-outline" size={16} color="#DC2626" />
-                      <Text style={styles.cancelActionText}>Cancel Pending Request</Text>
+                      <Text style={styles.cancelActionText}>Cancel Application</Text>
                     </TouchableOpacity>
                   )}
                 </WateryCard>
@@ -247,40 +277,56 @@ export default function LeaveScreen({ onBack }) {
           />
         )
       ) : (
-        /* APPLY FOR LEAVE FORM */
-        <ScrollView contentContainerStyle={styles.formScroll}>
-          {/* Entitlement Guideline Card */}
-          <WateryCard style={styles.policyCard} tint>
+        <ScrollView contentContainerStyle={styles.formScroll} keyboardShouldPersistTaps="handled">
+          <WateryCard style={styles.policyCard}>
             <View style={styles.policyHeader}>
-              <Ionicons name="information-circle" size={18} color={colors.primary} />
-              <Text style={styles.policyTitle}>Leave Entitlement Guidelines</Text>
+              <Ionicons name="information-circle" size={18} color={wallpaper?.primary || colors.primary} />
+              <Text style={[styles.policyTitle, wallpaper && { color: wallpaper.primary }]}>Leave Application Policy</Text>
             </View>
-            <Text style={styles.policyItem}>
-              • Requests should be submitted in advance where possible.
+            <Text style={[styles.policyItem, wallpaper && { color: wallpaper.textSecondary }]}>
+              • Requests are reviewed by HR Operations and subject to team coverage.
             </Text>
-            <Text style={styles.policyItem}>
-              • Emergency or sick leaves require prompt notification to management.
+            <Text style={[styles.policyItem, wallpaper && { color: wallpaper.textSecondary }]}>
+              • For Sick Leave lasting more than 2 consecutive days, medical fitness certificate may be requested.
+            </Text>
+            <Text style={[styles.policyItem, wallpaper && { color: wallpaper.textSecondary }]}>
+              • Cancelled requests before approval restore your entitlement balance.
             </Text>
           </WateryCard>
 
-          {/* Leave Type Chips */}
-          <Text style={styles.fieldLabel}>SELECT LEAVE CATEGORY</Text>
+          <Text style={[styles.fieldLabel, wallpaper && { color: wallpaper.textSecondary }]}>SELECT LEAVE TYPE</Text>
           <View style={styles.chipsContainer}>
             {LEAVE_TYPES.map((lt) => {
               const isSelected = leaveType === lt.id;
               return (
                 <TouchableOpacity
                   key={lt.id}
-                  style={[styles.chip, isSelected && styles.chipActive]}
+                  style={[
+                    styles.chip,
+                    wallpaper && { backgroundColor: wallpaper.surfaceWatery, borderColor: wallpaper.cardBorder },
+                    isSelected && [
+                      styles.chipActive,
+                      wallpaper?.isDark && { backgroundColor: wallpaper.primary, borderColor: wallpaper.primary },
+                    ],
+                  ]}
                   onPress={() => setLeaveType(lt.id)}
                   activeOpacity={0.8}
                 >
                   <Ionicons
                     name={lt.icon}
                     size={15}
-                    color={isSelected ? "#FFFFFF" : colors.textSecondary}
+                    color={isSelected ? (wallpaper?.isDark ? "#040915" : "#FFFFFF") : (wallpaper?.textSecondary || colors.textSecondary)}
                   />
-                  <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                  <Text
+                    style={[
+                      styles.chipText,
+                      wallpaper && { color: wallpaper.textSecondary },
+                      isSelected && {
+                        color: wallpaper?.isDark ? "#040915" : "#FFFFFF",
+                        fontWeight: "900",
+                      },
+                    ]}
+                  >
                     {lt.label}
                   </Text>
                 </TouchableOpacity>
@@ -288,74 +334,80 @@ export default function LeaveScreen({ onBack }) {
             })}
           </View>
 
-          {/* Dates Row */}
           <View style={styles.dateInputsRow}>
             <View style={styles.dateCol}>
-              <Text style={styles.fieldLabel}>START DATE (YYYY-MM-DD)</Text>
+              <Text style={[styles.fieldLabel, wallpaper && { color: wallpaper.textSecondary }]}>START DATE (YYYY-MM-DD)</Text>
               <TextInput
-                style={styles.textInput}
+                style={[
+                  styles.textInput,
+                  wallpaper?.isDark && { backgroundColor: "rgba(5, 17, 36, 0.85)", borderColor: wallpaper.cardBorder, color: wallpaper.textPrimary },
+                ]}
+                placeholder="2026-10-25"
+                placeholderTextColor={wallpaper?.isDark ? "#64748B" : colors.textMuted}
                 value={startDate}
                 onChangeText={setStartDate}
-                placeholder="2026-10-21"
-                placeholderTextColor={colors.textMuted}
+                maxLength={10}
               />
             </View>
 
             <View style={styles.dateCol}>
-              <Text style={styles.fieldLabel}>END DATE (YYYY-MM-DD)</Text>
+              <Text style={[styles.fieldLabel, wallpaper && { color: wallpaper.textSecondary }]}>END DATE (YYYY-MM-DD)</Text>
               <TextInput
-                style={styles.textInput}
+                style={[
+                  styles.textInput,
+                  wallpaper?.isDark && { backgroundColor: "rgba(5, 17, 36, 0.85)", borderColor: wallpaper.cardBorder, color: wallpaper.textPrimary },
+                ]}
+                placeholder="2026-10-27"
+                placeholderTextColor={wallpaper?.isDark ? "#64748B" : colors.textMuted}
                 value={endDate}
                 onChangeText={setEndDate}
-                placeholder="2026-10-21"
-                placeholderTextColor={colors.textMuted}
+                maxLength={10}
               />
             </View>
           </View>
 
-          {/* Duration Badge */}
-          <View style={styles.durationBadgeRow}>
-            <Ionicons name="time-outline" size={15} color={colors.primary} />
-            <Text style={styles.durationBadgeText}>
-              Total Leave Requested:{" "}
-              <Text style={{ fontWeight: "800", color: colors.primaryDark }}>
-                {selectedDays} Day(s)
+          {selectedDays > 0 && (
+            <View style={[styles.durationBadgeRow, wallpaper && { backgroundColor: wallpaper.surfaceWatery, borderColor: wallpaper.cardBorder }]}>
+              <Ionicons name="time-outline" size={16} color={wallpaper?.primary || colors.primary} />
+              <Text style={[styles.durationBadgeText, wallpaper && { color: wallpaper.textSecondary }]}>
+                Duration: <Text style={{ fontWeight: "700", color: wallpaper?.textPrimary || colors.textPrimary }}>{selectedDays} calendar day{selectedDays > 1 ? "s" : ""}</Text>
               </Text>
-            </Text>
-          </View>
+            </View>
+          )}
 
-          {/* Reason Input */}
           <View style={styles.formGroup}>
-            <Text style={styles.fieldLabel}>REASON FOR LEAVE</Text>
+            <Text style={[styles.fieldLabel, wallpaper && { color: wallpaper.textSecondary }]}>REASON FOR LEAVE</Text>
             <TextInput
-              style={[styles.textInput, styles.textArea]}
+              style={[
+                styles.textInput,
+                styles.textArea,
+                wallpaper?.isDark && { backgroundColor: "rgba(5, 17, 36, 0.85)", borderColor: wallpaper.cardBorder, color: wallpaper.textPrimary },
+              ]}
+              placeholder="State the reason or handover details during your absence"
+              placeholderTextColor={wallpaper?.isDark ? "#64748B" : colors.textMuted}
               value={reason}
               onChangeText={setReason}
-              placeholder="Provide context or explanation for your leave request..."
-              placeholderTextColor={colors.textMuted}
               multiline
-              numberOfLines={3}
             />
           </View>
 
-          {/* Dark Submit Button */}
           <DarkButton
-            title={`Submit ${leaveType} Leave Request`}
+            title="Submit Leave Application"
             onPress={handleApply}
             loading={submitting}
-            icon={<Ionicons name="send" size={17} color="#FFFFFF" />}
             style={{ marginTop: spacing.md }}
+            icon={<Ionicons name="paper-plane-outline" size={18} color="#FFFFFF" />}
           />
         </ScrollView>
       )}
 
-      {/* Confirmation Modal for Request Cancellation */}
       <ConfirmationModal
         visible={Boolean(cancelTargetId)}
-        title="Cancel Leave Request?"
-        message="Are you sure you want to cancel this pending leave application?"
-        confirmLabel="Yes, Cancel"
-        isDanger
+        title="Cancel Leave Application"
+        message="Are you sure you want to cancel this leave application? This action cannot be undone."
+        confirmText="Yes, Cancel Leave"
+        cancelText="Keep Leave"
+        danger
         loading={cancelling}
         onConfirm={executeCancel}
         onCancel={() => setCancelTargetId(null)}
@@ -367,83 +419,83 @@ export default function LeaveScreen({ onBack }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bgWatery,
+    backgroundColor: "transparent",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: spacing.lg,
-    paddingTop: 48,
-    paddingBottom: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceWatery,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: colors.borderWatery,
     alignItems: "center",
     justifyContent: "center",
+    ...shadows.sm,
   },
   headerTitleBox: {
-    alignItems: "center",
+    flex: 1,
+    marginHorizontal: spacing.md,
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "800",
     color: colors.textPrimary,
   },
   headerSubtitle: {
-    fontSize: 11.5,
+    fontSize: 12,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: 1,
   },
   refreshIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceWatery,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: colors.borderWatery,
     alignItems: "center",
     justifyContent: "center",
+    ...shadows.sm,
   },
   tabContainer: {
     flexDirection: "row",
-    padding: spacing.md,
-    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
     backgroundColor: colors.surfaceWatery,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderWatery,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.borderWatery,
+    padding: 3,
+    marginBottom: spacing.md,
   },
   tabButton: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 10,
-    borderRadius: radii.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.borderWatery,
+    paddingVertical: 9,
+    borderRadius: radii.md,
     gap: 6,
   },
   tabButtonActive: {
     backgroundColor: colors.darkButton,
-    borderColor: colors.darkButton,
+    ...shadows.sm,
   },
   tabText: {
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: "700",
     color: colors.textSecondary,
   },
   tabTextActive: {
     color: "#FFFFFF",
+    fontWeight: "800",
   },
   centerLoader: {
     flex: 1,

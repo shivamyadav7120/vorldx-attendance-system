@@ -299,9 +299,9 @@ qrSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 60 });
 const attendancePolicySchema = new mongoose.Schema(
   {
     key: { type: String, default: "default", unique: true },
-    officeStartTime: { type: String, default: "09:00" }, // 9:00 AM
-    checkInCutoffTime: { type: String, default: "09:30" }, // 9:30 AM cutoff
-    officeEndTime: { type: String, default: "18:00" }, // 6:00 PM closing / last hour
+    officeStartTime: { type: String, default: "09:00" },
+    checkInCutoffTime: { type: String, default: "09:30" },
+    officeEndTime: { type: String, default: "18:00" },
     lateArrivalPolicy: {
       type: String,
       enum: ["MARK_LATE", "MARK_ABSENT", "MARK_HALF_DAY"],
@@ -423,6 +423,31 @@ const notificationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const otpVerificationSchema = new mongoose.Schema(
+  {
+    phone: {
+      type: String,
+      required: true,
+      trim: true,
+      index: true,
+    },
+    otp: {
+      type: String,
+      required: true,
+    },
+    expiresAt: {
+      type: Date,
+      required: true,
+      index: { expires: 0 },
+    },
+    verified: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  { timestamps: true }
+);
+
 export const User = mongoose.models.User || mongoose.model("User", userSchema);
 export const Employee = mongoose.models.Employee || mongoose.model("Employee", employeeSchema);
 export const Attendance = mongoose.models.Attendance || mongoose.model("Attendance", attendanceSchema);
@@ -433,3 +458,4 @@ export const AttendancePolicy = mongoose.models.AttendancePolicy || mongoose.mod
 export const AuditLog = mongoose.models.AuditLog || mongoose.model("AuditLog", auditLogSchema);
 export const Organization = mongoose.models.Organization || mongoose.model("Organization", organizationSchema);
 export const Notification = mongoose.models.Notification || mongoose.model("Notification", notificationSchema);
+export const OtpVerification = mongoose.models.OtpVerification || mongoose.model("OtpVerification", otpVerificationSchema);

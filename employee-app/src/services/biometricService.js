@@ -8,10 +8,7 @@ export const BIOMETRIC_TOKEN_KEY = "vorldx_biometric_token";
 export const BIOMETRIC_USER_EMAIL = "vorldx_biometric_email";
 export const BIOMETRIC_USER_NAME = "vorldx_biometric_name";
 
-/**
- * Secure Storage wrapper: uses expo-secure-store on iOS/Android,
- * falls back to AsyncStorage on Web or if SecureStore throws.
- */
+
 async function setSecureItem(key, value) {
   try {
     if (Platform.OS !== "web" && (await SecureStore.isAvailableAsync())) {
@@ -49,9 +46,7 @@ async function removeSecureItem(key) {
   await AsyncStorage.removeItem(key);
 }
 
-/**
- * Check hardware availability, enrolled biometrics and specific biometric name
- */
+
 export async function checkBiometricAvailability() {
   if (Platform.OS === "web") {
     return {
@@ -94,9 +89,7 @@ export async function checkBiometricAvailability() {
   }
 }
 
-/**
- * Check if the user has enabled biometric login on this device
- */
+
 export async function isBiometricEnabled() {
   try {
     const enabled = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
@@ -107,9 +100,7 @@ export async function isBiometricEnabled() {
   }
 }
 
-/**
- * Get account metadata associated with the biometric login
- */
+
 export async function getBiometricAccount() {
   try {
     const email = await AsyncStorage.getItem(BIOMETRIC_USER_EMAIL);
@@ -120,9 +111,7 @@ export async function getBiometricAccount() {
   }
 }
 
-/**
- * Prompt the user for biometric verification (Face ID / Fingerprint)
- */
+
 export async function authenticateBiometric(promptMessage = "Verify your fingerprint or face") {
   try {
     if (Platform.OS === "web") {
@@ -152,9 +141,7 @@ export async function authenticateBiometric(promptMessage = "Verify your fingerp
   }
 }
 
-/**
- * Enable biometric login for the current session (stores token in hardware keychain)
- */
+
 export async function enableBiometric(token, userEmail, userName) {
   if (!token) {
     throw new Error("Active session token required to enable biometric login.");
@@ -173,9 +160,7 @@ export async function enableBiometric(token, userEmail, userName) {
   return { success: true };
 }
 
-/**
- * Disable biometric login and remove credentials from keychain
- */
+
 export async function disableBiometric() {
   await AsyncStorage.removeItem(BIOMETRIC_ENABLED_KEY);
   await removeSecureItem(BIOMETRIC_TOKEN_KEY);
@@ -184,9 +169,7 @@ export async function disableBiometric() {
   return { success: true };
 }
 
-/**
- * Login using stored credentials unlocked by platform biometrics
- */
+
 export async function loginWithBiometrics() {
   const enabled = await isBiometricEnabled();
   if (!enabled) {

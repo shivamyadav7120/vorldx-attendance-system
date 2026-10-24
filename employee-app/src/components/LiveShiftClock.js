@@ -2,16 +2,24 @@ import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, radii, spacing } from "../theme/tokens";
+import { useTheme } from "../context/ThemeContext";
 
 export default function LiveShiftClock({ todayAttendance }) {
   const [currentTime, setCurrentTime] = useState("");
   const [cutoffStatus, setCutoffStatus] = useState({ text: "", isLate: false });
   const [elapsedWorkingTime, setElapsedWorkingTime] = useState("");
 
+  let theme = null;
+  try {
+    theme = useTheme()?.wallpaper;
+  } catch (e) {
+    theme = null;
+  }
+
   useEffect(() => {
     function updateClock() {
       const now = new Date();
-      // Format India Time HH:MM:SS
+      
       const timeStr = now.toLocaleTimeString("en-IN", {
         timeZone: "Asia/Kolkata",
         hour12: true,
@@ -21,7 +29,7 @@ export default function LiveShiftClock({ todayAttendance }) {
       });
       setCurrentTime(timeStr);
 
-      // Check cutoff: 9:30 AM
+      
       const formatter = new Intl.DateTimeFormat("en-US", {
         timeZone: "Asia/Kolkata",
         hour: "numeric",
@@ -33,7 +41,7 @@ export default function LiveShiftClock({ todayAttendance }) {
       const minutes = parseInt(parts.find((p) => p.type === "minute")?.value || "0", 10);
       const totalMinutes = hours * 60 + minutes;
 
-      const cutoffMinutes = 9 * 60 + 30; // 9:30 AM = 570 mins
+      const cutoffMinutes = 9 * 60 + 30; 
       if (totalMinutes < 9 * 60) {
         const diff = 9 * 60 - totalMinutes;
         setCutoffStatus({
@@ -53,7 +61,7 @@ export default function LiveShiftClock({ todayAttendance }) {
         });
       }
 
-      // Calculate working hours if checked in
+      
       if (todayAttendance?.checkInTime) {
         try {
           const checkInParts = todayAttendance.checkInTime.split(":");
@@ -61,7 +69,7 @@ export default function LiveShiftClock({ todayAttendance }) {
             const checkInHours = parseInt(checkInParts[0], 10);
             const checkInMins = parseInt(checkInParts[1], 10);
 
-            // If checked out, use checkout time; otherwise use current time
+            
             let endHours = hours;
             let endMins = minutes;
 
@@ -90,12 +98,39 @@ export default function LiveShiftClock({ todayAttendance }) {
   }, [todayAttendance]);
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        theme && {
+          backgroundColor: theme.surfaceWatery,
+          borderColor: theme.cardBorder,
+        },
+      ]}
+    >
       <View style={styles.topRow}>
         <View style={styles.liveClockWrapper}>
-          <View style={styles.pulsingDot} />
-          <Text style={styles.clockText}>{currentTime || "--:--:--"}</Text>
-          <Text style={styles.timezoneLabel}>IST</Text>
+          <View
+            style={[
+              styles.pulsingDot,
+              theme && { backgroundColor: theme.primary },
+            ]}
+          />
+          <Text
+            style={[
+              styles.clockText,
+              theme && { color: theme.textPrimary },
+            ]}
+          >
+            {currentTime || "--:--:--"}
+          </Text>
+          <Text
+            style={[
+              styles.timezoneLabel,
+              theme && { color: theme.primary },
+            ]}
+          >
+            IST
+          </Text>
         </View>
 
         <View
@@ -120,16 +155,15 @@ export default function LiveShiftClock({ todayAttendance }) {
         </View>
       </View>
 
-      {/* Working Duration Bar if Checked In */}
       {Boolean(elapsedWorkingTime) && (
         <View style={styles.durationRow}>
           <View style={styles.durationLeft}>
-            <Ionicons name="timer-outline" size={15} color={colors.primary} />
-            <Text style={styles.durationLabel}>
+            <Ionicons name="timer-outline" size={15} color={theme?.primary || colors.primary} />
+            <Text style={[styles.durationLabel, theme && { color: theme.textSecondary }]}>
               {todayAttendance?.checkOutTime ? "Total Working Time:" : "Live Working Time:"}
             </Text>
           </View>
-          <Text style={styles.durationValue}>{elapsedWorkingTime}</Text>
+          <Text style={[styles.durationValue, theme && { color: theme.primary }]}>{elapsedWorkingTime}</Text>
         </View>
       )}
     </View>

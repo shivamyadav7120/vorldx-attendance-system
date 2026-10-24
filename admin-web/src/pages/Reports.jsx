@@ -97,7 +97,7 @@ export default function Reports() {
 
       {error && <div className="notice-banner notice-error">{error}</div>}
 
-      {/* STATS TILES */}
+      
       <div className="stats-grid report-stats">
         <div className="stat-card stat-blue">
           <div className="stat-top">
@@ -144,7 +144,7 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* CHARTS GRID */}
+      
       <div className="dashboard-grid" style={{ marginTop: 24 }}>
         <section className="panel report-chart-panel">
           <div className="panel-heading">
@@ -202,7 +202,7 @@ export default function Reports() {
         </section>
       </div>
 
-      {/* DEPARTMENT BREAKDOWN */}
+      
       {data?.departmentBreakdown && data.departmentBreakdown.length > 0 && (
         <section className="panel" style={{ marginTop: 24, padding: "20px 24px" }}>
           <div className="panel-heading">

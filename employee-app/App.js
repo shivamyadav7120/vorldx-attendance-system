@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { StyleSheet, View, ActivityIndicator } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
+import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 import LoginScreen from "./src/screens/LoginScreen";
 import DashboardScreen from "./src/screens/DashboardScreen";
 import HistoryScreen from "./src/screens/HistoryScreen";
@@ -10,22 +11,28 @@ import WfhScreen from "./src/screens/WfhScreen";
 import LeaveScreen from "./src/screens/LeaveScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import BottomTabBar from "./src/components/BottomTabBar";
-import { colors } from "./src/theme/tokens";
+import WallpaperBackground from "./src/components/WallpaperBackground";
 
 function MainNavigator() {
   const { user, loading } = useAuth();
+  const { wallpaper } = useTheme();
   const [currentScreen, setCurrentScreen] = useState("dashboard");
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <WallpaperBackground style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={wallpaper.primary} />
+      </WallpaperBackground>
     );
   }
 
   if (!user) {
-    return <LoginScreen />;
+    return (
+      <WallpaperBackground style={styles.root}>
+        <StatusBar style={wallpaper.statusBar} />
+        <LoginScreen />
+      </WallpaperBackground>
+    );
   }
 
   function renderScreen() {
@@ -45,20 +52,24 @@ function MainNavigator() {
   }
 
   return (
-    <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
-      <View style={styles.screenArea}>{renderScreen()}</View>
-      <BottomTabBar activeTab={currentScreen} onSelectTab={setCurrentScreen} />
-    </SafeAreaView>
+    <WallpaperBackground style={styles.root}>
+      <StatusBar style={wallpaper.statusBar} />
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+        <View style={styles.screenArea}>{renderScreen()}</View>
+        <BottomTabBar activeTab={currentScreen} onSelectTab={setCurrentScreen} />
+      </SafeAreaView>
+    </WallpaperBackground>
   );
 }
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <StatusBar style="dark" />
-        <MainNavigator />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <MainNavigator />
+        </AuthProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }
@@ -66,14 +77,16 @@ export default function App() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.bgWatery,
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: "transparent",
   },
   screenArea: {
     flex: 1,
   },
   centerContainer: {
     flex: 1,
-    backgroundColor: colors.bgWatery,
     justifyContent: "center",
     alignItems: "center",
   },

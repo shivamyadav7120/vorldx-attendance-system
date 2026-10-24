@@ -2,13 +2,12 @@ import crypto from "node:crypto";
 import { QrSession } from "../models/index.js";
 import { getPolicy } from "./policyService.js";
 
-/**
- */
+
 export async function createQrSession(userId, officeLocation = "Main Office") {
   const policy = await getPolicy();
   const validitySeconds = policy.qrExpirySeconds || 18;
 
-  // Cryptographically secure random token (48 hex chars)
+  
   const token = crypto.randomBytes(24).toString("hex");
   const expiresAt = new Date(Date.now() + validitySeconds * 1000);
 
@@ -29,9 +28,7 @@ export async function createQrSession(userId, officeLocation = "Main Office") {
   };
 }
 
-/**
- * Validates a QR token and marks it consumed atomically to prevent replay attacks.
- */
+
 export async function consumeQrToken(token, user) {
   if (!token || typeof token !== "string") {
     const error = new Error("QR token is required");
@@ -41,7 +38,7 @@ export async function consumeQrToken(token, user) {
 
   const now = new Date();
 
-  // Atomically find an unexpired, unused token and mark it used
+  
   const session = await QrSession.findOneAndUpdate(
     {
       token,
@@ -59,7 +56,7 @@ export async function consumeQrToken(token, user) {
   );
 
   if (!session) {
-    // Check if it was already used or expired to provide accurate feedback
+    
     const existing = await QrSession.findOne({ token });
     if (!existing) {
       const error = new Error("Invalid office QR code");

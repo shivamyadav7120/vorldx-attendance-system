@@ -1,18 +1,37 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { colors, radii, shadows, spacing } from "../theme/tokens";
+import { useTheme } from "../context/ThemeContext";
 
 export default function WateryCard({
   children,
   style,
-  tint = false, // if true, uses subtle translucent watery blue tint
+  tint = false,
   elevated = true,
 }) {
+  let theme = null;
+  try {
+    theme = useTheme()?.wallpaper;
+  } catch (e) {
+    theme = null;
+  }
+
+  const cardBg = tint
+    ? (theme?.surfaceWatery || colors.surfaceWatery)
+    : (theme?.surface || colors.surface);
+
+  const cardBorder = tint
+    ? (theme?.cardBorderActive || colors.borderWateryActive)
+    : (theme?.cardBorder || colors.borderWatery);
+
   return (
     <View
       style={[
         styles.card,
-        tint ? styles.tinted : styles.plain,
+        {
+          backgroundColor: cardBg,
+          borderColor: cardBorder,
+        },
         elevated && shadows.card,
         style,
       ]}
@@ -26,14 +45,6 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: radii.xl,
     padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.borderWatery,
-  },
-  plain: {
-    backgroundColor: colors.surface,
-  },
-  tinted: {
-    backgroundColor: colors.surfaceWatery,
-    borderColor: colors.borderWateryActive,
+    borderWidth: 1.2,
   },
 });

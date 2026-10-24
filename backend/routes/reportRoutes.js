@@ -40,7 +40,7 @@ router.get(
       const wfhToday = todayAttendance.filter((a) => a.mode === "WFH").length;
       const officeToday = todayAttendance.filter((a) => a.mode === "OFFICE").length;
 
-      // Department breakdown
+      
       const deptMap = {};
       for (const emp of allEmployees) {
         const d = emp.department || "Other";
@@ -51,7 +51,7 @@ router.get(
         count,
       }));
 
-      // Trend for the last 7 days
+      
       const trend = [];
       for (let i = 6; i >= 0; i--) {
         const d = new Date(Date.now() - i * 86400000);
