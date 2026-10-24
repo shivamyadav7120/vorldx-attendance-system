@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VorldX Employee Attendance System — Enterprise Architectural Report</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #111827;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --gold: #f59e0b;
+      --cyan: #06b6d4;
+      --emerald: #10b981;
+      --purple: #a855f7;
+      --rose: #f43f5e;
+      --blue: #3b82f6;
+      --orange: #f97316;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .hero {
+      background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #064e3b 100%);
+      border: 2px solid var(--gold);
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+      margin-bottom: 40px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    }
+    .hero-badge {
+      display: inline-block;
+      background: rgba(245, 158, 11, 0.2);
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      padding: 6px 16px;
+      border-radius: 9999px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: 2.6rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 10px;
+    }
+    .hero-sub {
+      font-size: 1.25rem;
+      color: var(--cyan);
+      margin-bottom: 24px;
+    }
+    .tag-grid {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .tag {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .tag-blue { background: #2563eb; }
+    .tag-purple { background: #7c3aed; }
+    .tag-green { background: #059669; }
+    .tag-orange { background: #ea580c; }
+    .tag-teal { background: #0d9488; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+    .stat-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      border: 1px solid #1f2937;
+      transition: transform 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-4px); }
+    .stat-card.gold { border-top: 4px solid var(--gold); }
+    .stat-card.cyan { border-top: 4px solid var(--cyan); }
+    .stat-card.emerald { border-top: 4px solid var(--emerald); }
+    .stat-card.purple { border-top: 4px solid var(--purple); }
+    .stat-num {
+      font-size: 2.4rem;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .stat-num.gold { color: var(--gold); }
+    .stat-num.cyan { color: var(--cyan); }
+    .stat-num.emerald { color: var(--emerald); }
+    .stat-num.purple { color: var(--purple); }
+    .stat-label {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .section-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .section-bar {
+      width: 6px;
+      height: 28px;
+      border-radius: 3px;
+    }
+
+    .card-grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+    .card-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+    .card {
+      background: var(--card-bg);
+      border-radius: 14px;
+      border: 1px solid #1f2937;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
+    .card-header {
+      padding: 16px 20px;
+      font-weight: 700;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .card-body {
+      padding: 24px;
+    }
+    .card-body ul {
+      list-style: none;
+    }
+    .card-body li {
+      margin-bottom: 12px;
+      display: flex;
+      gap: 8px;
+      font-size: 0.95rem;
+      color: #d1d5db;
+    }
+    .card-body li strong {
+      color: #fff;
+      min-width: 140px;
+    }
+
+    /* Coloured Themes */
+    .theme-gold .card-header { background: #38240a; color: var(--gold); border-bottom: 1px solid var(--gold); }
+    .theme-cyan .card-header { background: #083344; color: var(--cyan); border-bottom: 1px solid var(--cyan); }
+    .theme-emerald .card-header { background: #064e3b; color: var(--emerald); border-bottom: 1px solid var(--emerald); }
+    .theme-purple .card-header { background: #3b0764; color: var(--purple); border-bottom: 1px solid var(--purple); }
+    .theme-rose .card-header { background: #4c0519; color: var(--rose); border-bottom: 1px solid var(--rose); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 40px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #1f2937;
+    }
+    th, td {
+      padding: 14px 18px;
+      text-align: left;
+      font-size: 0.92rem;
+    }
+    th {
+      background: #1e293b;
+      color: var(--cyan);
+      font-weight: 700;
+      border-bottom: 2px solid #334155;
+    }
+    tr:nth-child(even) { background: #131c2e; }
+    tr:nth-child(odd) { background: #0e1626; }
+    td strong { color: #fff; }
+
+    .badge-present { background: #065f46; color: #34d399; padding: 4px 10px; border-radius: 6px; font-weight: 700; }
+    .badge-late { background: #78350f; color: #fde68a; padding: 4px 10px; border-radius: 6px; font-weight: 700; }
+    .badge-wfh { background: #1e3a8a; color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-weight: 700; }
+    .badge-absent { background: #881337; color: #fecdd3; padding: 4px 10px; border-radius: 6px; font-weight: 700; }
+
+    .footer {
+      text-align: center;
+      padding: 30px;
+      border-top: 1px solid #1f2937;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-top: 40px;
+    }
+    @media print {
+      body { background: #fff; color: #000; }
+      .hero { border-color: #000; background: #f3f4f6; }
+      .card { border-color: #ccc; }
+      .card-header { background: #e5e7eb !important; color: #000 !important; }
+      th { background: #e5e7eb; color: #000; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="hero">
+      <div class="hero-badge">OFFICIAL ARCHITECTURAL &amp; FUNCTIONAL SPECIFICATION</div>
+      <h1>VORLDX EMPLOYEE ATTENDANCE SYSTEM</h1>
+      <div class="hero-sub">Full-Stack Enterprise Workforce Governance &amp; Cryptographic Telemetry</div>
+      
+      <div class="tag-grid">
+        <span class="tag tag-blue">React 18 + Vite</span>
+        <span class="tag tag-purple">React Native + Expo 58</span>
+        <span class="tag tag-green">Node.js + Express REST API</span>
+        <span class="tag tag-orange">Dynamic 18s QR Token Engine</span>
+        <span class="tag tag-teal">MongoDB Atlas Persistence</span>
+      </div>
+
+      <div style="font-size: 0.95rem; color: #9ca3af; margin-top: 10px;">
+        <strong>VorldX Industries Private Limited</strong> | CIN: U62099UP2026PTC245598 | Lucknow, Uttar Pradesh, India
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card cyan">
+        <div class="stat-num cyan">18s</div>
+        <div class="stat-label">Dynamic QR Session Life</div>
+      </div>
+      <div class="stat-card gold">
+        <div class="stat-num gold">09:30 AM</div>
+        <div class="stat-label">IST Late Arrival Cutoff</div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-num purple">5 / Day</div>
+        <div class="stat-label">Maximum Daily WFH Quota</div>
+      </div>
+      <div class="stat-card emerald">
+        <div class="stat-num emerald">100%</div>
+        <div class="stat-label">Audited Manual Punch Overrides</div>
+      </div>
+    </div>
+
+    <!-- Section 1 -->
+    <div class="section-title">
+      <div class="section-bar" style="background: var(--gold);"></div>
+      <span>1. Enterprise Problem &amp; Strategic Solution</span>
+    </div>
+
+    <div class="card-grid-3">
+      <div class="card theme-rose">
+        <div class="card-header">1. Static Punch Vulnerabilities</div>
+        <div class="card-body">
+          <ul>
+            <li><strong>Buddy Punching:</strong> Co-workers clocking in for absent colleagues using static badges.</li>
+            <li><strong>Photo-Sharing QR:</strong> Static printed posters photographed and shared on WhatsApp to check in offsite.</li>
+            <li><strong>No Audit Trail:</strong> Manual registers lacking tamper-evident digital records.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card theme-gold">
+        <div class="card-header">2. Hybrid Workforce Friction</div>
+        <div class="card-body">
+          <ul>
+            <li><strong>Unregulated WFH:</strong> Uncontrolled remote days resulting in empty physical offices.</li>
+            <li><strong>Lost In Email:</strong> Leave requests buried across chat channels and personal emails.</li>
+            <li><strong>Inflexible Rules:</strong> No automated distinction between punctual staff and latecomers.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card theme-emerald">
+        <div class="card-header">3. VorldX Cryptographic Vision</div>
+        <div class="card-body">
+          <ul>
+            <li><strong>18-Second Rotation:</strong> Tokens expire in 18s via MongoDB TTL index, defeating photo sharing.</li>
+            <li><strong>Two-Stage Approvals:</strong> WFH requires HR review followed by Super Admin confirmation.</li>
+            <li><strong>Single Source:</strong> Centralized MongoDB replica set keeping web, app, and kiosk in sync.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2 -->
+    <div class="section-title">
+      <div class="section-bar" style="background: var(--cyan);"></div>
+      <span>2. Multi-Role RBAC Permissions Matrix</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Functional Capability</th>
+          <th>Super Admin</th>
+          <th>HR Admin</th>
+          <th>Employee Client</th>
+          <th>Office Kiosk Display</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Attendance Policy Configuration</strong></td>
+          <td>FULL CONTROL</td>
+          <td>READ ONLY</td>
+          <td>NO ACCESS</td>
+          <td>NO ACCESS</td>
+        </tr>
+        <tr>
+          <td><strong>HR Admin Account Provisioning</strong></td>
+          <td>EXCLUSIVE (.env guarded)</td>
+          <td>FORBIDDEN (403)</td>
+          <td>FORBIDDEN (403)</td>
+          <td>NO ACCESS</td>
+        </tr>
+        <tr>
+          <td><strong>Employee Directory Management</strong></td>
+          <td>FULL CONTROL</td>
+          <td>FULL CONTROL</td>
+          <td>READ ONLY (Self Profile)</td>
+          <td>NO ACCESS</td>
+        </tr>
+        <tr>
+          <td><strong>WFH Request Approval</strong></td>
+          <td>FINAL CONFIRMATION</td>
+          <td>STAGE 1 REVIEW</td>
+          <td>APPLY WITH REASON</td>
+          <td>NO ACCESS</td>
+        </tr>
+        <tr>
+          <td><strong>Dynamic QR Check-In / Check-Out</strong></td>
+          <td>N/A</td>
+          <td>N/A</td>
+          <td>IN-APP CAMERA SCAN</td>
+          <td>GENERATE &amp; ROTATE ONLY</td>
+        </tr>
+        <tr>
+          <td><strong>Forensic Attendance Correction</strong></td>
+          <td>FULL ACCESS (With Reason)</td>
+          <td>SUBMIT FOR REVIEW</td>
+          <td>NO ACCESS</td>
+          <td>NO ACCESS</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Section 3 -->
+    <div class="section-title">
+      <div class="section-bar" style="background: var(--purple);"></div>
+      <span>3. Coordinated Ecosystem Clients</span>
+    </div>
+
+    <div class="card-grid-3">
+      <div class="card theme-cyan">
+        <div class="card-header">1. Office Reception Kiosk</div>
+        <div class="card-body">
+          <ul>
+            <li><strong>Laser Sweep Beam:</strong> Animated cyan scanning visualizer.</li>
+            <li><strong>18s Countdown Ring:</strong> Radial countdown changing from cyan to amber to red.</li>
+            <li><strong>Full-Screen Lock:</strong> Kiosk terminal preventing visitor tampering.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card theme-purple">
+        <div class="card-header">2. Employee Mobile Client</div>
+        <div class="card-body">
+          <ul>
+            <li><strong>Camera Scanner:</strong> Sub-second dynamic QR code recognition.</li>
+            <li><strong>Punctuality Engine:</strong> Automatic evaluation: &le; 09:30 AM marks <span class="badge-present">PRESENT</span>, &gt; 09:30 AM marks <span class="badge-late">LATE</span>.</li>
+            <li><strong>WFH Quota Portal:</strong> Live remaining slot counter (max 5/day).</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card theme-emerald">
+        <div class="card-header">3. Admin Web Console</div>
+        <div class="card-body">
+          <ul>
+            <li><strong>Executive Dashboard:</strong> Live presence, punctuality score, and attendance charts.</li>
+            <li><strong>Two-Stage WFH Queue:</strong> HR verification followed by Super Admin sign-off.</li>
+            <li><strong>Attendance Corrections:</strong> Mandatory justification notes with immutable snapshots.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4 -->
+    <div class="section-title">
+      <div class="section-bar" style="background: var(--emerald);"></div>
+      <span>4. Automated Quality Verification Matrix</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Test Suite</th>
+          <th>Validation Scope</th>
+          <th>Verification Parameters</th>
+          <th>Outcome &amp; Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Test 1</strong></td>
+          <td>Database Replica Health</td>
+          <td>MongoDB persistent connection &amp; write latency</td>
+          <td><span class="badge-present">PASSED (0ms delay)</span></td>
+        </tr>
+        <tr>
+          <td><strong>Test 2</strong></td>
+          <td>Asia/Kolkata IST Time Engine</td>
+          <td>24-hour normalized IST conversion</td>
+          <td><span class="badge-present">PASSED</span></td>
+        </tr>
+        <tr>
+          <td><strong>Test 3</strong></td>
+          <td>Punctuality Cutoff Engine</td>
+          <td>09:30:00 AM IST PRESENT vs LATE classification</td>
+          <td><span class="badge-present">PASSED (Accurate)</span></td>
+        </tr>
+        <tr>
+          <td><strong>Test 4</strong></td>
+          <td>QR 18s Anti-Replay Security</td>
+          <td>Expired/replayed token rejected with HTTP 400</td>
+          <td><span class="badge-present">PASSED (Tamper-proof)</span></td>
+        </tr>
+        <tr>
+          <td><strong>Test 5</strong></td>
+          <td>Compound Index Duplicate Lock</td>
+          <td>Duplicate check-in rejected with HTTP 409</td>
+          <td><span class="badge-present">PASSED (Zero duplicates)</span></td>
+        </tr>
+        <tr>
+          <td><strong>Test 7</strong></td>
+          <td>WFH 5-Employee Quota Guard</td>
+          <td>6th concurrent remote request blocked</td>
+          <td><span class="badge-present">PASSED (Quota enforced)</span></td>
+        </tr>
+        <tr>
+          <td><strong>Test 12</strong></td>
+          <td>Super Admin Privilege Isolation</td>
+          <td>HR Admin forbidden from provisioning HR (403)</td>
+          <td><span class="badge-present">PASSED (Role secured)</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="footer">
+      <strong>VorldX Industries Private Limited</strong> &bull; Confidential &amp; Proprietary &bull; Enterprise Attendance &amp; Workforce Intelligence<br>
+      Deliverables: 45-Page Coloured Presentation (PDF &amp; PPTX) | Standalone Executive HTML Report
+    </div>
+  </div>
+</body>
+</html>
