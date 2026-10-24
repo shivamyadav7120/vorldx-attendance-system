@@ -1,3 +1,6 @@
 node_modules
 
 employee-app/.expo/
+
+# Runtime-generated employee uploads
+backend/uploads/
